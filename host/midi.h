@@ -1,5 +1,5 @@
 /* MIDI in and out for the audition runtime (CoreMIDI). Out goes to one chosen destination and to a virtual
-   source that DAWs see as "LXR Audition". In takes notes from one chosen source and plays them. */
+   source that DAWs see as "PHX-D01". In takes notes from one chosen source and plays them. */
 #pragma once
 #include <stdint.h>
 

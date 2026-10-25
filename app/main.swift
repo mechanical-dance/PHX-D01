@@ -1,4 +1,4 @@
-// LXR Audition: a window with the LXR front panel (app/web, drawn in a WKWebView) on top of the lxa audio runtime.
+// PHX-D01: a window with the LXR front panel (app/web, drawn in a WKWebView) on top of the lxa audio runtime.
 // The page posts commands ({cmd: "hit", t, vel}, ...); the app owns the kit list and sends state back with lxrState().
 import Cocoa
 import WebKit
@@ -29,7 +29,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         web = WKWebView(frame: .zero, configuration: cfg)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 940),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        window.title = "LXR Audition"
+        window.title = "PHX-D01"
         window.minSize = NSSize(width: 900, height: 720)
         window.contentView = web
         window.center()
@@ -239,7 +239,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "Open Kit Folder…", action: #selector(openMenu), keyEquivalent: "o")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit LXR Audition", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit PHX-D01", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         NSApp.mainMenu = main
     }

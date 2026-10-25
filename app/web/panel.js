@@ -1,4 +1,4 @@
-// LXR Audition front panels. Draws the LXR-02 desktop or the LXR-Drum module in SVG and sends commands to the
+// PHX-D01 front panels. Draws the LXR-02 desktop or the LXR-Drum module in SVG and sends commands to the
 // native host (window.webkit.messageHandlers.lxr). Layouts follow the panel drawings in both owner's manuals.
 'use strict';
 const NS = 'http://www.w3.org/2000/svg';

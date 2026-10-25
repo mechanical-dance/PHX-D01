@@ -1,4 +1,4 @@
-# lxr-audition
+# PHX-D01 (lxr-audition)
 
 Audition LXR-02 kits (`.SND`) on the Mac with the LXR's own sound engine, compiled natively.
 No SD-card swapping.
@@ -18,13 +18,13 @@ built from different firmware trees, with clashing symbol names, can run side by
 engine it finds next to itself and keeps the current kit loaded in all of them, so switching is instant.
 
 ## App
-`make app` builds `build/LXR-Audition.app`: the LXR-02 desktop or LXR-Drum module front panel (drawn from the
+`make app` builds `build/PHX-D01.app`: the LXR-02 desktop or LXR-Drum module front panel (drawn from the
 manuals' panel drawings) in a window, on the same engines.
 - Triggers (1-7, shift = accent / full velocity), accent jacks, output-jack solo, desktop faders (firmware curve).
 - Kit banks: each opened folder is a bank. Morph toward a target kit (firmware rule: routing and mod targets stay).
 - Step sequencer in the audio thread: 7 tracks, up to 32 steps, velocity/accent and pitch per step, swing,
   8 pattern slots. Pitch input: piano (on screen or QWERTY) and MIDI in. Note 60 = the kit's pitch.
-- MIDI out (port + virtual "LXR Audition" source): channel per track (how the LXR listens) or one channel with GM drum
+- MIDI out (port + virtual "PHX-D01" source): channel per track (how the LXR listens) or one channel with GM drum
   notes; timestamped to line up with the audio.
 - Audio out: any device; stereo mix on any channel pair, or the 4 jacks on 4 channels.
 

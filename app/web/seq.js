@@ -135,7 +135,7 @@ function drawSeq() {
   const ioRow = h('div', { className: 'row io' },
     h('label', {}, 'Audio out ', select([[-1, 'System default'], ...io.audioOuts.map((n, i) => [i, n])], io.audioOut, v => { io.audioOut = v; io.audioLayout = [2, 0]; sendAudioOut(); drawSeq(); }, 'Audio output')),
     h('label', {}, layoutSelect()),
-    h('label', {}, 'MIDI out ', select([[-1, io.midiOuts.length ? 'None (virtual port only)' : 'Virtual port "LXR Audition"'], ...io.midiOuts.map((n, i) => [i, n])], io.midiOut, v => { io.midiOut = v; post({ cmd: 'midiOut', i: v }); }, 'MIDI output')),
+    h('label', {}, 'MIDI out ', select([[-1, io.midiOuts.length ? 'None (virtual port only)' : 'Virtual port "PHX-D01"'], ...io.midiOuts.map((n, i) => [i, n])], io.midiOut, v => { io.midiOut = v; post({ cmd: 'midiOut', i: v }); }, 'MIDI output')),
     h('label', {}, select([[0, 'Channel per track'], [1, 'One channel, drum notes']], io.midiMode, v => { io.midiMode = v; post({ cmd: 'midiMode', mode: v, ch: io.midiCh }); drawSeq(); }, 'MIDI mode')),
     h('label', {}, io.midiMode === 0 ? 'from ch ' : 'ch ', select(Array.from({ length: 16 }, (_, i) => [i, String(i + 1)]), io.midiCh, v => { io.midiCh = v; post({ cmd: 'midiMode', mode: io.midiMode, ch: v }); drawSeq(); }, 'MIDI channel')),
     h('label', {}, 'MIDI in ', select([[-1, 'None'], ...io.midiIns.map((n, i) => [i, n])], io.midiIn, v => { io.midiIn = v; post({ cmd: 'midiIn', i: v }); }, 'MIDI input')),

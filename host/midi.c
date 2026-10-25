@@ -49,10 +49,10 @@ static void read_proc(const MIDIPacketList *list, void *ref, void *src_ref)
 void midi_init(void (*on_note)(int, int, int))
 {
 	note_cb = on_note;
-	if (MIDIClientCreate(CFSTR("LXR Audition"), NULL, NULL, &client)) return;
+	if (MIDIClientCreate(CFSTR("PHX-D01"), NULL, NULL, &client)) return;
 	MIDIOutputPortCreate(client, CFSTR("out"), &out_port);
 	MIDIInputPortCreate(client, CFSTR("in"), read_proc, NULL, &in_port);
-	MIDISourceCreate(client, CFSTR("LXR Audition"), &virtual_src);
+	MIDISourceCreate(client, CFSTR("PHX-D01"), &virtual_src);
 }
 
 int midi_out_count(void) { return (int)MIDIGetNumberOfDestinations(); }

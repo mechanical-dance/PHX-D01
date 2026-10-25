@@ -9,7 +9,7 @@ ENGINE := $(shell cd $(VENDOR)/Core/Src 2>/dev/null && ls Soundengine/DSPAudio/*
 LXR2_OBJS := $(patsubst %.c,$(B)/obj/%.o,$(ENGINE)) $(B)/obj/host/engine.o $(B)/obj/host/stubs.o $(B)/obj/menu/Cc2Text.o
 CFLAGS := -std=gnu11 -O2 -w -fvisibility=hidden '-Dsection(x)=unused' -Ishim -I$(INC) -I$(INC)/Soundengine -I$(SRC) -Ihost
 
-all: $(B)/lxr-render $(B)/lxr-play $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib $(B)/LXR-Audition.app
+all: $(B)/lxr-render $(B)/lxr-play $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib $(B)/PHX-D01.app
 
 $(B)/.patched: $(wildcard patches/*.patch)
 	rm -rf $(B)/src && mkdir -p $(B)/src && cp -R $(VENDOR)/Core $(B)/src/
@@ -62,7 +62,7 @@ clean:
 .PHONY: all clean
 
 # The app: a WKWebView front panel (app/web) on the lxa runtime, with the engine plugins inside the bundle.
-APP := $(B)/LXR-Audition.app
+APP := $(B)/PHX-D01.app
 app: $(APP)
 $(APP): app/main.swift app/bridge.h host/audio.h host/midi.h app/Info.plist $(wildcard app/web/*) $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib
 	rm -rf $@ && mkdir -p $@/Contents/MacOS $@/Contents/Resources
