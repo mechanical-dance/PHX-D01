@@ -277,7 +277,7 @@ function buildDesktop(svg) {
   });
 
   // logo and display
-  label(g, 240, 128, 'LXR', 'logo'); label(g, 240, 162, 'DIGITAL DRUM SYNTH', 'logo sub');
+  label(g, 240, 128, 'PHX-D01', 'logo'); label(g, 240, 162, 'KIT AUDITIONER', 'logo sub');
   display(g, 88, 182, 304, 86, 'lcd');
   [115, 195, 275, 355].forEach((x, k) => knob(g, x, 330, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': edits the value shown above it'));
   encoder(g, 505, 205, 50, d => setKit(state.kit + d));
@@ -315,8 +315,8 @@ function buildDesktop(svg) {
       if (i < 7) ui.trig[i].push(b);
       label(g, x, 536, t, 'lbl small');
     });
-  label(g, 50, 570, 'LXR–02', 'model', 'start');
-  label(g, 950, 568, 'SONIC POTIONS  X  ERICA SYNTHS', 'brand', 'end');
+  label(g, 50, 570, 'PHX-D01', 'model', 'start');
+  label(g, 950, 568, 'LXR-02 DESKTOP LAYOUT', 'brand', 'end');
 }
 
 // ---------- LXR-Drum module ----------
@@ -371,8 +371,8 @@ function buildModule(svg) {
       label(g, x, 452, a + '\n' + b, 'lbl small');
       ui.trig[i].push(button(g, x, 498, 17, e => hit(i, e.shiftKey), { title: `${b}: fire (perform mode), shift for accent` }));
     });
-  label(g, 40, 566, 'LXR DRUM', 'model', 'start');
-  label(g, 604, 564, 'ERICA SYNTHS  ×  SONIC POTIONS', 'brand', 'end');
+  label(g, 40, 566, 'PHX-D01', 'model', 'start');
+  label(g, 604, 564, 'LXR-DRUM MODULE LAYOUT', 'brand', 'end');
 }
 
 function build() {
