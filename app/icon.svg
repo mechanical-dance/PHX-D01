@@ -10,8 +10,8 @@
       <stop offset="1" stop-color="#ffd36a"/>
     </linearGradient>
     <linearGradient id="liquid" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ff9a4a"/>
-      <stop offset="1" stop-color="#9c1c0c"/>
+      <stop offset="0" stop-color="#6a2fa0"/>
+      <stop offset="1" stop-color="#1f0a36"/>
     </linearGradient>
     <radialGradient id="halo">
       <stop offset="0" stop-color="#ffd36a" stop-opacity="0.32"/>
@@ -22,7 +22,7 @@
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
     <clipPath id="body"><path d="M474 480 L 474 520 L 340 790 Q 330 812 354 812 L 670 812 Q 694 812 684 790 L 550 520 L 550 480 Z"/></clipPath>
-    <clipPath id="vane"><path d="M-215 4 C -150 -40, -40 -62, 80 -54 C 150 -48, 196 -30, 222 -4 C 190 22, 120 44, 30 46 C -70 48, -160 34, -215 4 Z"/></clipPath>
+    <clipPath id="vane"><path d="M-328 -13 -319 -8 -310 -3 -301 1 -288 -1 -275 -5 -263 -6 -252 -7 -241 -8 -230 -9 -220 -9 -210 -8 -199 -8 -189 -7 -179 -7 -169 -6 -159 -5 -149 -4 -139 -4 -129 -3 -119 -3 -108 -3 -98 -4 -88 -5 -78 -6 -67 -7 -57 -8 -47 -10 -37 -12 -26 -13 -16 -15 -6 -16 5 -17 15 -18 25 -19 36 -19 47 -19 58 -20 69 -19 80 -19 91 -19 102 -19 113 -20 125 -20 136 -21 148 -23 159 -24 171 -26 182 -29 194 -31 205 -34 216 -37 228 -41 239 -44 251 -47 263 -51 275 -55 287 -58 299 -61 312 -64 326 -65 L333 -55 326 -43 317 -33 307 -24 298 -15 288 -6 277 2 267 10 256 18 245 25 234 32 223 39 212 46 200 52 189 58 177 63 165 69 153 74 141 79 129 83 117 87 105 91 92 95 80 98 67 101 55 103 42 105 30 107 17 109 5 110 -8 111 -20 112 -33 112 -45 112 -58 112 -70 111 -83 110 -95 109 -107 107 -119 105 -131 103 -143 100 -155 97 -166 94 -178 90 -189 86 -200 82 -211 77 -222 72 -232 67 -242 61 -252 55 -262 49 -272 42 -281 35 -289 27 -297 18 -304 8 -314 4 -323 -1 -332 -7 Z"/></clipPath>
     <path id="spark" d="M0 -1 L 0.2 -0.2 L 1 0 L 0.2 0.2 L 0 1 L -0.2 0.2 L -1 0 L -0.2 -0.2 Z"/>
   </defs>
 
@@ -47,21 +47,22 @@
     <path d="M410 700 L 456 610" stroke-width="12" stroke-opacity="0.45"/>
   </g>
 
-  <!-- the feather, drifting down almost level -->
-  <g transform="translate(512 300) rotate(-20)" filter="url(#glow)">
-    <path d="M-215 4 C -150 -40, -40 -62, 80 -54 C 150 -48, 196 -30, 222 -4 C 190 22, 120 44, 30 46 C -70 48, -160 34, -215 4 Z" fill="url(#ember)"/>
-    <path d="M-235 6 C -100 -6, 60 -10, 220 -4" fill="none" stroke="#fff2c8" stroke-width="8" stroke-linecap="round"/>
-    <g clip-path="url(#vane)" stroke="#1e1e20" stroke-width="9" stroke-linecap="round">
-      <path d="M60 -80 L 0 -10"/><path d="M-50 70 L -110 8"/>
-    </g>
+  <!-- the feather, drifting down, cupped against the air -->
+  <g opacity="0.35" fill="none" stroke="#ffd36a" stroke-width="5" stroke-linecap="round">
+    <path d="M200 290 C 290 240, 380 250, 450 240"/><path d="M720 300 C 770 265, 810 255, 850 265"/>
+  </g>
+  <g transform="translate(500 395) rotate(-10)" filter="url(#glow)">
+    <path d="M-328 -13 -319 -8 -310 -3 -301 1 -288 -1 -275 -5 -263 -6 -252 -7 -241 -8 -230 -9 -220 -9 -210 -8 -199 -8 -189 -7 -179 -7 -169 -6 -159 -5 -149 -4 -139 -4 -129 -3 -119 -3 -108 -3 -98 -4 -88 -5 -78 -6 -67 -7 -57 -8 -47 -10 -37 -12 -26 -13 -16 -15 -6 -16 5 -17 15 -18 25 -19 36 -19 47 -19 58 -20 69 -19 80 -19 91 -19 102 -19 113 -20 125 -20 136 -21 148 -23 159 -24 171 -26 182 -29 194 -31 205 -34 216 -37 228 -41 239 -44 251 -47 263 -51 275 -55 287 -58 299 -61 312 -64 326 -65 L333 -55 326 -43 317 -33 307 -24 298 -15 288 -6 277 2 267 10 256 18 245 25 234 32 223 39 212 46 200 52 189 58 177 63 165 69 153 74 141 79 129 83 117 87 105 91 92 95 80 98 67 101 55 103 42 105 30 107 17 109 5 110 -8 111 -20 112 -33 112 -45 112 -58 112 -70 111 -83 110 -95 109 -107 107 -119 105 -131 103 -143 100 -155 97 -166 94 -178 90 -189 86 -200 82 -211 77 -222 72 -232 67 -242 61 -252 55 -262 49 -272 42 -281 35 -289 27 -297 18 -304 8 -314 4 -323 -1 -332 -7 Z" fill="url(#ember)"/>
+    <g clip-path="url(#vane)" stroke="#1e1e20" stroke-width="10" stroke-linecap="round"><path d="M2 14 L-25 -38"/><path d="M154 -9 L129 -44"/><path d="M-99 92 L-123 130"/></g>
+    <path d="M-350 -2 C -150 95, 120 85, 330 -60" fill="none" stroke="#fff2c8" stroke-width="9" stroke-linecap="round"/>
   </g>
 
   <!-- PS1-style twinkles -->
   <g fill="#fff6d8" filter="url(#glow)">
-    <use href="#spark" transform="translate(760 210) scale(30)"/>
-    <use href="#spark" transform="translate(300 250) scale(20)"/>
-    <use href="#spark" transform="translate(620 400) scale(16)"/>
-    <use href="#spark" transform="translate(430 470) scale(12)"/>
-    <use href="#spark" transform="translate(560 540) scale(9)"/>
+    <use href="#spark" transform="translate(800 250) scale(32)"/>
+    <use href="#spark" transform="translate(220 330) scale(20)"/>
+    <use href="#spark" transform="translate(640 580) scale(14)"/>
+    <use href="#spark" transform="translate(400 600) scale(10)"/>
+    <use href="#spark" transform="translate(560 240) scale(9)"/>
   </g>
 </svg>
