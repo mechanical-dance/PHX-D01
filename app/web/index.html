@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LXR Audition</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<header>
+  <div class="seg" id="hw" role="radiogroup" aria-label="Hardware">
+    <button data-v="0">LXR-02 desktop</button><button data-v="1">LXR-Drum module</button>
+  </div>
+  <div class="seg" id="engine" role="radiogroup" aria-label="Engine"></div>
+  <select id="kits" aria-label="Kit"></select>
+  <button id="open" title="Adds the folder as a bank">Open kit folder…</button>
+  <label class="morph" title="Morph the kit toward a target kit, like the hardware's morph (routing and mod targets stay put)">Morph
+    <input id="morph" type="range" min="0" max="255" value="0"> → <select id="mtg" aria-label="Morph target"></select></label>
+  <button id="seqbtn" aria-pressed="true" title="Show or hide the pattern editor">Sequencer</button>
+  <span id="hint"></span>
+</header>
+<main><svg id="panel" aria-label="Front panel"></svg></main>
+<section id="seq" aria-label="Sequencer"></section>
+<script src="panel.js"></script>
+<script src="seq.js"></script>
+</body>
+</html>

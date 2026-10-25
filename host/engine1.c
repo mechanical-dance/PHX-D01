@@ -81,10 +81,12 @@ void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS])
 
 void lxr_hit(int voice, uint8_t velocity)
 {
-	if (voice >= 0 && voice < 6) voiceControl_noteOn((uint8_t)voice, SEQ_DEFAULT_NOTE, velocity);
+	if (voice >= 0 && voice < 7) voiceControl_noteOn((uint8_t)voice, SEQ_DEFAULT_NOTE, velocity);
 }
 
-void lxr_render(int16_t out[LXR_BLOCK * 2])
+static int16_t sat(int32_t v) { return v > 32767 ? 32767 : v < -32768 ? -32768 : (int16_t)v; }
+
+void lxr_render(int16_t jack[LXR_JACKS][LXR_BLOCK])
 {
 	_Static_assert(LXR_BLOCK % OUTPUT_DMA_SIZE == 0, "block size");
 	static sample_mx_t a[OUTPUT_DMA_SIZE * 2], b[OUTPUT_DMA_SIZE * 2];
@@ -92,9 +94,21 @@ void lxr_render(int16_t out[LXR_BLOCK * 2])
 		voiceControl_processPending();
 		memset(a, 0, sizeof a); memset(b, 0, sizeof b);
 		mixer_calcNextSampleBlock(a, b);
-		for (int s = 0; s < OUTPUT_DMA_SIZE * 2; s++) {   /* 24-bit in int32 -> int16, both output pairs summed */
-			int32_t v = (a[s] + b[s]) >> 8;
-			out[blk * OUTPUT_DMA_SIZE * 2 + s] = v > 32767 ? 32767 : v < -32768 ? -32768 : (int16_t)v;
+		for (int s = 0; s < OUTPUT_DMA_SIZE * 2; s++) {   /* 24-bit in int32 -> int16; DAC1 (main) is b */
+			int i = blk * OUTPUT_DMA_SIZE + s / 2;
+			jack[s & 1][i] = sat(b[s] >> 8);
+			jack[2 + (s & 1)][i] = sat(a[s] >> 8);
 		}
 	}
+}
+
+void lxr_set_fader(int voice, float gain)
+{
+	extern float slider_vol[];
+	if (voice >= 0 && voice < 6) slider_vol[voice] = gain;
+}
+
+void lxr_note(int voice, uint8_t note, uint8_t velocity)
+{
+	if (voice >= 0 && voice < 7) voiceControl_noteOn((uint8_t)voice, note > 127 ? 127 : note, velocity);
 }

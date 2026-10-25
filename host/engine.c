@@ -1,5 +1,6 @@
 #include <string.h>
 #include "engine.h"
+#include "main.h"   /* jack-detect pins */
 #include "Soundengine/Soundengine.h"
 #include "Soundengine/MIDI/CortexParser.h"
 #include "Soundengine/MIDI/MidiVoiceControl.h"
@@ -13,6 +14,9 @@ int16_t dma_buffer[OUTPUT_DMA_SIZE * 4], dma_buffer2[OUTPUT_DMA_SIZE * 4];
 
 void lxr_init(void)
 {
+	/* every output jack patched, so the mixer's jack-detect fallback never reroutes a voice */
+	switch_l1_GPIO_Port->IDR |= switch_l1_Pin | switch_r1_Pin;
+	switch_l2_GPIO_Port->IDR |= switch_l2_Pin | switch_r2_Pin;
 	mixer_init();
 	parameterArray_init();
 	/* On the STM32, address 0 is readable flash, so modulators aimed at PAR_NONE (ptr NULL) read junk harmlessly.
@@ -71,17 +75,27 @@ _Static_assert(END_OF_SOUND_PARAMETERS == LXR_KIT_PARAMS, "LXR-2 kit size");
 
 void lxr_hit(int voice, uint8_t velocity)
 {
-	if (voice >= 0 && voice < 6) voiceControl_noteOn((uint8_t)voice, SEQ_DEFAULT_NOTE, velocity);
+	if (voice >= 0 && voice < 7) voiceControl_noteOn((uint8_t)voice, SEQ_DEFAULT_NOTE, velocity);
 }
 
-void lxr_render(int16_t out[LXR_BLOCK * 2])
+void lxr_render(int16_t jack[LXR_JACKS][LXR_BLOCK])
 {
 	memset(dma_buffer, 0, sizeof dma_buffer);
 	memset(dma_buffer2, 0, sizeof dma_buffer2);
-	mixer_calcNextSampleBlock(dma_buffer, dma_buffer2);
-	/* sum both output pairs (DAC1 = main, DAC2 = second) so routing can't hide a voice */
-	for (int s = 0; s < LXR_BLOCK * 2; s++) {
-		int v = dma_buffer[s] + dma_buffer2[s];
-		out[s] = v > 32767 ? 32767 : v < -32768 ? -32768 : (int16_t)v;
+	mixer_calcNextSampleBlock(dma_buffer, dma_buffer2);   /* DAC1 (main) goes to the second buffer */
+	for (int i = 0; i < LXR_BLOCK; i++) {
+		jack[0][i] = dma_buffer2[2 * i]; jack[1][i] = dma_buffer2[2 * i + 1];
+		jack[2][i] = dma_buffer[2 * i];  jack[3][i] = dma_buffer[2 * i + 1];
 	}
+}
+
+void lxr_set_fader(int voice, float gain)
+{
+	extern float lxr_fader_gain[6];
+	if (voice >= 0 && voice < 6) lxr_fader_gain[voice] = gain;
+}
+
+void lxr_note(int voice, uint8_t note, uint8_t velocity)
+{
+	if (voice >= 0 && voice < 7) voiceControl_noteOn((uint8_t)voice, note > 127 ? 127 : note, velocity);
 }

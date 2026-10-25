@@ -14,7 +14,8 @@ uint8_t menu_selectedPresetNr[NUM_PRESET_LOCATIONS];
 uint8_t midi_process_block;
 uint8_t trigger_clockReceived, trigger_dividerClockOut1, trigger_prescalerClockInput;
 
-float adc_getFaderVolume(uint8_t idx) { (void)idx; return 1.f; }
+float lxr_fader_gain[6] = {1.f, 1.f, 1.f, 1.f, 1.f, 1.f};   /* set by lxr_set_fader */
+float adc_getFaderVolume(uint8_t idx) { return idx < 6 ? lxr_fader_gain[idx] : 1.f; }
 uint8_t buttonHandler_getMode() { return 0; }
 void led_blinkHandler() {}
 void led_clearActive_step() {}

@@ -26,13 +26,18 @@ int main(int argc, char **argv)
 	FILE *out = fopen(argv[2], "wb");
 	if (!out) { perror(argv[2]); return 1; }
 	uint32_t frames = 0;
-	int16_t buf[LXR_BLOCK * 2];
+	int16_t jack[LXR_JACKS][LXR_BLOCK], buf[LXR_BLOCK * 2];
 	wav_header(out, 0);
 	for (int voice = 0; voice < 6; voice++) {
 		int peak = 0;
 		lxr_hit(voice, 127);
 		for (int b = 0; b < blocks_per_hit; b++) {
-			lxr_render(buf);
+			lxr_render(jack);
+			for (int i = 0; i < LXR_BLOCK; i++)   /* main L/R plus out2 L/R, so routing can't hide a voice */
+				for (int c = 0; c < 2; c++) {
+					int v = jack[c][i] + jack[2 + c][i];
+					buf[2 * i + c] = v > 32767 ? 32767 : v < -32768 ? -32768 : (int16_t)v;
+				}
 			for (int s = 0; s < LXR_BLOCK * 2; s++) if (abs(buf[s]) > peak) peak = abs(buf[s]);
 			fwrite(buf, 2, LXR_BLOCK * 2, out);
 			frames += LXR_BLOCK;

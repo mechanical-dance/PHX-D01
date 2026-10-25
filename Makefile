@@ -9,7 +9,7 @@ ENGINE := $(shell cd $(VENDOR)/Core/Src 2>/dev/null && ls Soundengine/DSPAudio/*
 LXR2_OBJS := $(patsubst %.c,$(B)/obj/%.o,$(ENGINE)) $(B)/obj/host/engine.o $(B)/obj/host/stubs.o $(B)/obj/menu/Cc2Text.o
 CFLAGS := -std=gnu11 -O2 -w -fvisibility=hidden '-Dsection(x)=unused' -Ishim -I$(INC) -I$(INC)/Soundengine -I$(SRC) -Ihost
 
-all: $(B)/lxr-render $(B)/lxr-play $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib
+all: $(B)/lxr-render $(B)/lxr-play $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib $(B)/LXR-Audition.app
 
 $(B)/.patched: $(wildcard patches/*.patch)
 	rm -rf $(B)/src && mkdir -p $(B)/src && cp -R $(VENDOR)/Core $(B)/src/
@@ -19,7 +19,7 @@ $(B)/.patched: $(wildcard patches/*.patch)
 $(B)/obj/%.o: $(VENDOR)/Core/Src/%.c $(B)/.patched
 	@mkdir -p $(dir $@); $(CC) $(CFLAGS) -c $(SRC)/$*.c -o $@
 
-$(B)/obj/host/%.o: host/%.c $(B)/.patched
+$(B)/obj/host/%.o: host/%.c host/engine.h host/audio.h host/midi.h $(B)/.patched
 	@mkdir -p $(dir $@); $(CC) $(CFLAGS) -c $< -o $@
 
 $(B)/lxr-render: $(LXR2_OBJS) $(B)/obj/host/render.o $(B)/obj/host/kit.o
@@ -29,8 +29,8 @@ $(B)/lxr-render: $(LXR2_OBJS) $(B)/obj/host/render.o $(B)/obj/host/kit.o
 $(B)/engine-lxr2.dylib: $(LXR2_OBJS)
 	$(CC) -dynamiclib $^ -o $@ -lm
 
-$(B)/lxr-play: $(B)/obj/host/play.o $(B)/obj/host/kit.o
-	$(CC) $^ -o $@ -framework AudioToolbox -framework CoreFoundation
+$(B)/lxr-play: $(B)/obj/host/play.o $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o
+	$(CC) $^ -o $@ -framework AudioToolbox -framework CoreAudio -framework CoreMIDI -framework CoreFoundation
 
 # --- LXR-1 engine: Sonic Potions 0.37 via LXR02Open (non-commercial licence; personal use) ---
 VENDOR1 ?= $(HOME)/code/vendor/lxr-02/LXR02Open
@@ -60,3 +60,15 @@ $(B)/engine-lxr1.dylib: $(LXR1_OBJS)
 clean:
 	rm -rf $(B)
 .PHONY: all clean
+
+# The app: a WKWebView front panel (app/web) on the lxa runtime, with the engine plugins inside the bundle.
+APP := $(B)/LXR-Audition.app
+app: $(APP)
+$(APP): app/main.swift app/bridge.h host/audio.h host/midi.h app/Info.plist $(wildcard app/web/*) $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib
+	rm -rf $@ && mkdir -p $@/Contents/MacOS $@/Contents/Resources
+	swiftc -O -import-objc-header app/bridge.h app/main.swift $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o \
+		-framework AudioToolbox -framework CoreAudio -framework CoreMIDI -framework WebKit -o $@/Contents/MacOS/lxr-audition
+	cp $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib $@/Contents/MacOS/
+	cp -R app/web $@/Contents/Resources/
+	cp app/Info.plist $@/Contents/
+	codesign --force --deep -s - $@

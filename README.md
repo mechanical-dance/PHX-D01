@@ -10,12 +10,31 @@ and links it with `host/`. The vendor tree is never modified.
 ## Use
 ```sh
 make
-./build/lxr-play ~/code/synth/lxr-kits        # live: 1-6 hit voices, space all, ←/→ kit, e engine, q quit
+./build/lxr-play ~/code/synth/lxr-kits        # live: 1-7 triggers (7 = open hat), space all, ←/→ kit, e engine, m hardware (LXR-02/LXR-Drum), o jack solo, q quit
 ./build/lxr-render KIT.SND out/kit.wav        # offline: hits each of the 6 voices
 ```
 Engines are plugins (`build/engine-*.dylib`) exporting only `lxr_*` (see `host/engine.h`), so engines
 built from different firmware trees, with clashing symbol names, can run side by side. `lxr-play` loads every
 engine it finds next to itself and keeps the current kit loaded in all of them, so switching is instant.
+
+## App
+`make app` builds `build/LXR-Audition.app`: the LXR-02 desktop or LXR-Drum module front panel (drawn from the
+manuals' panel drawings) in a window, on the same engines.
+- Triggers (1-7, shift = accent / full velocity), accent jacks, output-jack solo, desktop faders (firmware curve).
+- Kit banks: each opened folder is a bank. Morph toward a target kit (firmware rule: routing and mod targets stay).
+- Step sequencer in the audio thread: 7 tracks, up to 32 steps, velocity/accent and pitch per step, swing,
+  8 pattern slots. Pitch input: piano (on screen or QWERTY) and MIDI in. Note 60 = the kit's pitch.
+- MIDI out (port + virtual "LXR Audition" source): channel per track (how the LXR listens) or one channel with GM drum
+  notes; timestamped to line up with the audio.
+- Audio out: any device; stereo mix on any channel pair, or the 4 jacks on 4 channels.
+
+Code: `host/audio.c` (runtime: engines, CoreAudio, sequencer), `host/midi.c` (CoreMIDI), `app/main.swift` (window,
+kit banks, settings), `app/web/` (panels, sequencer UI).
+
+## Before publishing
+Not yet: rename (Erica's notice reserves "LXR"/"LXR-02"/"Erica Synths" names and the panel design), add credits
+(Julian Schmidt / Sonic Potions, Erica Synths, Brendan Clarke / LXR02Open) and licences, and decide how to ship
+the LXR-1 engine (LXR02Open's non-commercial licence doesn't mix with GPL-3.0 in one program).
 
 ## How it works
 - Kit format (`.SND`, 255 bytes): 8-byte name, then 247 parameter bytes indexed by the firmware's
