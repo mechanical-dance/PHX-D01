@@ -1,0 +1,38 @@
+diff --color -ru a/Core/MIDI/MidiRealtime.c b/Core/MIDI/MidiRealtime.c
+--- a/Core/MIDI/MidiRealtime.c	2026-10-25 17:05:03
++++ b/Core/MIDI/MidiRealtime.c	2026-10-25 17:05:03
+@@ -53,13 +53,13 @@
+ static uint32_t midiRealtime_irqSave(void)
+ {
+ 	uint32_t primask;
+-	__asm volatile ("mrs %0, primask\ncpsid i" : "=r" (primask) :: "memory");
++	primask = 0;   /* native: engine runs on one thread, no interrupts to mask */
+ 	return primask;
+ }
+ 
+ static void midiRealtime_irqRestore(uint32_t primask)
+ {
+-	__asm volatile ("msr primask, %0" :: "r" (primask) : "memory");
++	(void)primask;
+ }
+ 
+ uint8_t midiRealtime_isStatus(uint8_t status)
+diff --color -ru a/Core/MIDI/MidiVoiceControl.c b/Core/MIDI/MidiVoiceControl.c
+--- a/Core/MIDI/MidiVoiceControl.c	2026-10-25 17:05:03
++++ b/Core/MIDI/MidiVoiceControl.c	2026-10-25 17:05:03
+@@ -79,13 +79,13 @@
+ static uint32_t voiceControl_irqSave(void)
+ {
+ 	uint32_t primask;
+-	__asm volatile ("mrs %0, primask\ncpsid i" : "=r" (primask) :: "memory");
++	primask = 0;   /* native: engine runs on one thread, no interrupts to mask */
+ 	return primask;
+ }
+ 
+ static void voiceControl_irqRestore(uint32_t primask)
+ {
+-	__asm volatile ("msr primask, %0" :: "r" (primask) : "memory");
++	(void)primask;
+ }
+ 
+ static void voiceControl_enqueueTriggerLocked(uint8_t voice, uint8_t note, uint8_t vel)

@@ -1,0 +1,19 @@
+--- a/Core/DSPAudio/Oscillator.c
++++ b/Core/DSPAudio/Oscillator.c
+@@ -517,12 +517,13 @@
+ //-----------------------------------------------------------
+ int16_t calcNoise(OscInfo* osc)
+ {
++	const uint32_t prev = osc->phase;
+ 	osc->phase += osc->phaseInc;
+ 
+ 	//check overflow flag, ( if osc->phase == osc->phaseInc a reset occured ==> retrigger, too
+-	APSR_Type apsr;
+-	apsr.w = __get_APSR();
+-	if(apsr.b.V ||  (osc->phase == osc->phaseInc))
++	// native: the ARM V flag (signed overflow of the add), computed explicitly
++	const int signedOverflow = (int32_t)((prev ^ osc->phase) & (osc->phaseInc ^ osc->phase)) < 0;
++	if(signedOverflow ||  (osc->phase == osc->phaseInc))
+ 	{
+ 		//overflow happened -> phaseWrapped
+ 

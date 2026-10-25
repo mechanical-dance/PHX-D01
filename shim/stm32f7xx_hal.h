@@ -63,3 +63,8 @@ static inline GPIO_PinState HAL_GPIO_ReadPin(GPIO_TypeDef *p, uint16_t pin){ ret
 static inline void HAL_GPIO_WritePin(GPIO_TypeDef *p, uint16_t pin, GPIO_PinState s){ if (s) p->ODR |= pin; else p->ODR &= ~pin; }
 static inline void HAL_GPIO_TogglePin(GPIO_TypeDef *p, uint16_t pin){ p->ODR ^= pin; }
 #define __CLZ(x) ((uint8_t)((x) ? __builtin_clz(x) : 32))
+static inline int32_t __QADD(int32_t a, int32_t b){ int64_t r = (int64_t)a + b; return r > INT32_MAX ? INT32_MAX : r < INT32_MIN ? INT32_MIN : (int32_t)r; }
+static inline int32_t __QSUB(int32_t a, int32_t b){ int64_t r = (int64_t)a - b; return r > INT32_MAX ? INT32_MAX : r < INT32_MIN ? INT32_MIN : (int32_t)r; }
+#ifndef __STATIC_FORCEINLINE
+#define __STATIC_FORCEINLINE static inline
+#endif

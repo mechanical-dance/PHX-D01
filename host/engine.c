@@ -59,6 +59,9 @@ void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS])
 		send(CC_LFO_TARGET, (uint8_t)(((value & 0x80) >> 7) | ((i & 0x3f) << 1)), value & 0x7f);
 	}
 	for (int i = 0; i < END_OF_SOUND_PARAMETERS; i++) {
+		/* Firmware bug: index 127 (PAR_BANK_CHANGE) becomes CC 0 after the +1 offset, and midiParser_ccHandler then
+		   writes midiParser_originalCcValues[65536]. Skipped here (as LXR02Open does); bank change has no sound. */
+		if (i == 127) continue;
 		if (i < 128) send(MIDI_CC, (uint8_t)i, p[i]);
 		else send(CC_2, (uint8_t)(i - 128), p[i]);
 	}

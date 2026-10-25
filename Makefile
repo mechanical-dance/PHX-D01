@@ -9,7 +9,7 @@ ENGINE := $(shell cd $(VENDOR)/Core/Src 2>/dev/null && ls Soundengine/DSPAudio/*
 LXR2_OBJS := $(patsubst %.c,$(B)/obj/%.o,$(ENGINE)) $(B)/obj/host/engine.o $(B)/obj/host/stubs.o $(B)/obj/menu/Cc2Text.o
 CFLAGS := -std=gnu11 -O2 -w -fvisibility=hidden '-Dsection(x)=unused' -Ishim -I$(INC) -I$(INC)/Soundengine -I$(SRC) -Ihost
 
-all: $(B)/lxr-render $(B)/lxr-play $(B)/engine-lxr2.dylib
+all: $(B)/lxr-render $(B)/lxr-play $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib
 
 $(B)/.patched: $(wildcard patches/*.patch)
 	rm -rf $(B)/src && mkdir -p $(B)/src && cp -R $(VENDOR)/Core $(B)/src/
@@ -31,6 +31,31 @@ $(B)/engine-lxr2.dylib: $(LXR2_OBJS)
 
 $(B)/lxr-play: $(B)/obj/host/play.o $(B)/obj/host/kit.o
 	$(CC) $^ -o $@ -framework AudioToolbox -framework CoreFoundation
+
+# --- LXR-1 engine: Sonic Potions 0.37 via LXR02Open (non-commercial licence; personal use) ---
+VENDOR1 ?= $(HOME)/code/vendor/lxr-02/LXR02Open
+B1 := $(B)/lxr1
+ENGINE1 := $(shell cd $(VENDOR1)/Core 2>/dev/null && ls DSPAudio/*.c MIDI/*.c Sequencer/*.c Preset/ParameterArray.c Menu/Cc2Text.c | grep -v -e MIDI/Uart.c -e DSPAudio/random.c)
+LXR1_OBJS := $(patsubst %.c,$(B1)/obj/%.o,$(ENGINE1)) $(B1)/obj/host/engine1.o $(B1)/obj/host/stubs1.o $(B1)/obj/host/random1.o
+INC1 = -Ishim1 -Ishim -I$(B) -Ihost -I$(VENDOR1) $(addprefix -I,$(shell find $(VENDOR1)/Core -type d -not -path "*/knowledge_files/*"))
+CFLAGS1 = -std=gnu11 -O2 -w -fvisibility=hidden '-Dsection(x)=unused' $(INC1)
+
+$(B1)/.patched: $(wildcard patches-lxr1/*.patch)
+	rm -rf $(B1)/src && mkdir -p $(B1)/src && cp -R $(VENDOR1)/Core $(VENDOR1)/config.h $(B1)/src/
+	for p in patches-lxr1/*.patch; do patch -s -p1 -d $(B1)/src < $$p || exit 1; done
+	touch $@
+
+$(B)/lxr1_map.h: gen_map.py
+	python3 gen_map.py $(VENDOR) $(VENDOR1) $@
+
+$(B1)/obj/host/%.o: host/%.c $(B1)/.patched $(B)/lxr1_map.h
+	@mkdir -p $(dir $@); $(CC) $(CFLAGS1) -c $< -o $@
+
+$(B1)/obj/%.o: $(VENDOR1)/Core/%.c $(B1)/.patched
+	@mkdir -p $(dir $@); $(CC) $(CFLAGS1) -c $(B1)/src/Core/$*.c -o $@
+
+$(B)/engine-lxr1.dylib: $(LXR1_OBJS)
+	$(CC) -dynamiclib $^ -o $@ -lm
 
 clean:
 	rm -rf $(B)

@@ -31,6 +31,18 @@ engine it finds next to itself and keeps the current kit loaded in all of them, 
   memory (address 0 is readable flash on the STM32); `patches/01` computes the ARM overflow flag the noise
   oscillator reads.
 
+## Engines
+| Plugin | Source | Notes |
+|---|---|---|
+| `engine-lxr2.dylib` | Erica `lxr-desktop-app` v1.7 (GPL-3.0) | the LXR-02's own engine; kits load natively |
+| `engine-lxr1.dylib` | Sonic Potions 0.37 via `LXR02Open` (non-commercial licence) | kits translated by parameter name (`gen_map.py` → `build/lxr1_map.h`, 220/247 params) |
+
+LXR-1 translation: the 27 LXR-2-only parameters (FX bus, PWM, morph) are dropped; voices routed to the FX bus
+play dry on the main output; waveform PWM becomes Rec and sample slots shift down by one.
+
+Native fixes in both: NULL parameter pointers point at scratch memory; kit index 127 is skipped (firmware bug:
+it becomes CC 0 and `midiParser_ccHandler` writes `midiParser_originalCcValues[65536]`); the noise oscillator's
+ARM overflow-flag read is computed in C. LXR-1 only: interrupt masking is a no-op and the RNG is the system's.
+
 ## Not yet
-- LXR-1 engine (Sonic Potions 0.37 via LXR02Open; no FX bus, so FX-routed voices play dry).
 - Hardware models (output stage of the desktop LXR-2 vs the original LXR).
