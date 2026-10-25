@@ -10,9 +10,12 @@ and links it with `host/`. The vendor tree is never modified.
 ## Use
 ```sh
 make
-./build/lxr-render ~/code/synth/lxr-kits/05-WOODS.SND out/woods.wav   # hits each of the 6 voices
-afplay out/woods.wav
+./build/lxr-play ~/code/synth/lxr-kits        # live: 1-6 hit voices, space all, ←/→ kit, e engine, q quit
+./build/lxr-render KIT.SND out/kit.wav        # offline: hits each of the 6 voices
 ```
+Engines are plugins (`build/engine-*.dylib`) exporting only `lxr_*` (see `host/engine.h`), so engines
+built from different firmware trees, with clashing symbol names, can run side by side. `lxr-play` loads every
+engine it finds next to itself and keeps the current kit loaded in all of them, so switching is instant.
 
 ## How it works
 - Kit format (`.SND`, 255 bytes): 8-byte name, then 247 parameter bytes indexed by the firmware's
@@ -29,5 +32,5 @@ afplay out/woods.wav
   oscillator reads.
 
 ## Not yet
-- Velocity / LFO mod targets from the kit (`CC_VELO_TARGET`, `CC_LFO_TARGET`) aren't sent yet, so modulation routing is off.
-- Interactive player (keys 1-6, step through a folder of kits).
+- LXR-1 engine (Sonic Potions 0.37 via LXR02Open; no FX bus, so FX-routed voices play dry).
+- Hardware models (output stage of the desktop LXR-2 vs the original LXR).
