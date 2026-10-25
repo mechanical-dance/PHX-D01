@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c2c2f"/>
+      <stop offset="1" stop-color="#121213"/>
+    </linearGradient>
+    <linearGradient id="ember" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#7a1208"/>
+      <stop offset="0.45" stop-color="#e4572e"/>
+      <stop offset="1" stop-color="#ffd36a"/>
+    </linearGradient>
+    <linearGradient id="liquid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8a3d"/>
+      <stop offset="1" stop-color="#9c1c0c"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff7a3a" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff7a3a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="bulb"><circle cx="512" cy="640" r="196"/></clipPath>
+  </defs>
+
+  <!-- tile -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#tile)"/>
+  <rect x="104" y="104" width="816" height="816" rx="182" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="4"/>
+  <g fill="#0b0b0c" stroke="#47474b" stroke-width="3">
+    <circle cx="190" cy="190" r="15"/><circle cx="834" cy="190" r="15"/>
+    <circle cx="190" cy="834" r="15"/><circle cx="834" cy="834" r="15"/>
+  </g>
+
+  <!-- glow behind the flask -->
+  <circle cx="512" cy="560" r="330" fill="url(#halo)"/>
+
+  <!-- liquid in the bulb -->
+  <g clip-path="url(#bulb)">
+    <path d="M300 640 C 380 610, 440 668, 512 640 S 640 612, 724 642 L 724 860 L 300 860 Z" fill="url(#liquid)"/>
+    <circle cx="452" cy="720" r="14" fill="#ffd36a" opacity="0.7"/>
+    <circle cx="560" cy="760" r="9" fill="#ffd36a" opacity="0.6"/>
+    <circle cx="590" cy="690" r="6" fill="#ffd36a" opacity="0.6"/>
+  </g>
+
+  <!-- feather rising out of the flask -->
+  <g filter="url(#glow)">
+    <path d="M512 742
+             C 470 640, 452 520, 476 410
+             C 494 330, 540 262, 604 214
+             C 618 292, 610 360, 590 428
+             C 572 500, 548 600, 512 742 Z" fill="url(#ember)"/>
+    <!-- shaft -->
+    <path d="M512 760 C 516 600, 540 420, 600 228" fill="none" stroke="#fff2c8" stroke-width="9" stroke-linecap="round"/>
+  </g>
+
+  <!-- glass flask -->
+  <g fill="none" stroke="#e9e6df" stroke-linejoin="round">
+    <path d="M462 268 L 462 452 A 196 196 0 1 0 562 452 L 562 268" stroke-width="22" stroke-opacity="0.92"/>
+    <path d="M440 262 L 584 262" stroke-width="26" stroke-linecap="round"/>
+    <!-- highlight -->
+    <path d="M378 590 A 150 150 0 0 1 430 520" stroke-width="14" stroke-linecap="round" stroke-opacity="0.5"/>
+  </g>
+</svg>
