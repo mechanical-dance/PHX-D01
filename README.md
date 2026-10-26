@@ -57,8 +57,11 @@ Then open a kit folder (File ▸ Open Kit Folder…) or a card (File ▸ Open Pr
 
 ## Licence
 GPL-3.0-only (see `LICENSE`). Erica Synths' firmware terms ([NOTICE](https://github.com/erica-synths/lxr-desktop-app/blob/main/NOTICE.md))
-apply to their code. PHX-D01 is not affiliated with or approved by Erica Synths or Sonic Potions. "Erica Synths",
-"LXR" and "LXR-02" are Erica Synths' trademarks and are used here only to say what PHX-D01 works with.
+apply to their code.
+
+PHX-D01 is an independent project and is not affiliated with, endorsed by, or supported by Erica Synths or
+Sonic Potions. Erica Synths, LXR and LXR-02 are trademarks of Erica Synths. They are used here for identification
+only.
 
 The LXR-1 engine is built from your own clone of LXR02Open, under that project's non-commercial licence.
 Don't share builds that include `engine-lxr1.dylib`.
