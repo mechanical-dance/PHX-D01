@@ -19,6 +19,7 @@ typedef struct {
 	void (*render)(int16_t[LXR_JACKS][LXR_BLOCK]);
 	void (*samples)(const int16_t *, const uint32_t *, const uint32_t *, const uint8_t *, int);   /* optional */
 	void (*set_mod)(const LxrMod *);   /* optional: the module's mod matrix */
+	void (*set_morph)(const uint8_t *, const uint8_t *, uint8_t);   /* optional: the morph pair, for the matrix */
 } Engine;
 
 #define MAX_ENGINES 4
@@ -28,12 +29,12 @@ static Engine engines[MAX_ENGINES];
 static int n_engines;
 
 /* Commands to the audio thread: many producers (UI, MIDI) behind a lock, one consumer that never locks. */
-enum { CMD_HIT, CMD_LOAD, CMD_ENGINE, CMD_SOLO, CMD_FADER, CMD_HW, CMD_PATTERN, CMD_TRANSPORT, CMD_TEMPO, CMD_SAMPLES, CMD_MATRIX, CMD_CV, CMD_ACCENT };
+enum { CMD_HIT, CMD_LOAD, CMD_ENGINE, CMD_SOLO, CMD_FADER, CMD_HW, CMD_PATTERN, CMD_TRANSPORT, CMD_TEMPO, CMD_SAMPLES, CMD_MATRIX, CMD_CV, CMD_ACCENT, CMD_MORPH };
 typedef struct {
 	int type, arg, vel, note, from_midi;
 	float value, value2;
 	const LxaSamples *samples;
-	union { uint8_t params[LXR_KIT_PARAMS]; LxaStep steps[LXA_TRACKS][LXA_MAX_STEPS]; uint8_t matrix[LXR_MOD_BYTES]; } data;
+	union { uint8_t params[LXR_KIT_PARAMS]; LxaStep steps[LXA_TRACKS][LXA_MAX_STEPS]; uint8_t matrix[LXR_MOD_BYTES]; struct { uint8_t a[LXR_KIT_PARAMS], b[LXR_KIT_PARAMS]; } morph; } data;
 } Cmd;
 #define RING 128
 static Cmd ring[RING];
@@ -135,6 +136,9 @@ static void handle(Cmd *c)
 	case CMD_ENGINE: active = c->arg; break;
 	case CMD_SOLO: solo = c->arg; break;
 	case CMD_HW: hw = c->arg; apply_faders(); send_mod(); break;
+	case CMD_MORPH:
+		for (int e = 0; e < n_engines; e++) if (engines[e].set_morph) engines[e].set_morph(c->data.morph.a, c->data.morph.b, (uint8_t)c->arg);
+		break;
 	case CMD_MATRIX: memcpy(matrix, c->data.matrix, LXR_MOD_BYTES); send_mod(); break;
 	case CMD_CV: mod.cv[c->arg] = c->value; send_mod(); break;
 	case CMD_ACCENT: acc_held[c->arg] = (uint8_t)c->vel; send_mod(); break;
@@ -189,7 +193,7 @@ static int load_engine(const char *path)
 	void *h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
 	if (!h) return 0;
 	Engine e = { dlsym(h, "lxr_engine_name"), dlsym(h, "lxr_init"), dlsym(h, "lxr_load_params"), dlsym(h, "lxr_hit"),
-	             dlsym(h, "lxr_note"), dlsym(h, "lxr_set_fader"), dlsym(h, "lxr_render"), dlsym(h, "lxr_set_samples"), dlsym(h, "lxr_set_mod") };
+	             dlsym(h, "lxr_note"), dlsym(h, "lxr_set_fader"), dlsym(h, "lxr_render"), dlsym(h, "lxr_set_samples"), dlsym(h, "lxr_set_mod"), dlsym(h, "lxr_set_morph") };
 	if (!e.name || !e.init || !e.load || !e.hit || !e.note || !e.fader || !e.render) { fprintf(stderr, "%s: missing symbols\n", path); return 0; }
 	e.init();
 	engines[n_engines++] = e;
@@ -325,6 +329,12 @@ void lxa_samples(const LxaSamples *set) { Cmd c = { .type = CMD_SAMPLES, .sample
 int lxa_engine_has_samples(int engine) { return engine >= 0 && engine < n_engines && engines[engine].samples != NULL; }
 
 void lxa_matrix(const uint8_t m[LXR_MOD_BYTES]) { Cmd c = { .type = CMD_MATRIX }; memcpy(c.data.matrix, m, LXR_MOD_BYTES); push(&c); }
+void lxa_morph(const uint8_t a[LXR_KIT_PARAMS], const uint8_t b[LXR_KIT_PARAMS], int amount)
+{
+	Cmd c = { .type = CMD_MORPH, .arg = amount };
+	memcpy(c.data.morph.a, a, LXR_KIT_PARAMS); memcpy(c.data.morph.b, b, LXR_KIT_PARAMS);
+	push(&c);
+}
 void lxa_cv(int jack, float volts) { if (jack >= 0 && jack < 5) { Cmd c = { .type = CMD_CV, .arg = jack, .value = volts }; push(&c); } }
 void lxa_accent(int jack, int high) { if (jack >= 0 && jack < 6) { Cmd c = { .type = CMD_ACCENT, .arg = jack, .vel = high != 0 }; push(&c); } }
 

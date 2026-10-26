@@ -232,6 +232,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         guard !kits.isEmpty else { return }
         let p = heardParams()
         p.withUnsafeBufferPointer { lxa_load($0.baseAddress); lxa_matrix($0.baseAddress! + Int(LXR_KIT_PARAMS)) }
+        let b = morphTarget >= 0 && morphTarget < kits.count ? kits[morphTarget].params : kits[kit].params
+        lxa_morph(kits[kit].params, b, Int32(morphAmount))
     }
 
     func heardParams() -> [UInt8] {

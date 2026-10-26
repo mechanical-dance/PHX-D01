@@ -6,7 +6,7 @@ SRC := $(B)/src/Core/Src
 INC := $(B)/src/Core/Inc
 ENGINE := $(shell cd $(VENDOR)/Core/Src 2>/dev/null && ls Soundengine/DSPAudio/*.c Soundengine/DSPAudio/FX/*.c Soundengine/DSPAudio/FX/*/*.c \
             Soundengine/FxBus.c Soundengine/MIDI/*.c Soundengine/Sequencer/*.c | grep -v -e MIDI/Uart.c)
-LXR2_OBJS := $(patsubst %.c,$(B)/obj/%.o,$(ENGINE)) $(B)/obj/host/engine.o $(B)/obj/host/stubs.o $(B)/obj/menu/Cc2Text.o
+LXR2_OBJS := $(patsubst %.c,$(B)/obj/%.o,$(ENGINE)) $(B)/obj/host/engine.o $(B)/obj/host/stubs.o $(B)/obj/menu/Cc2Text.o $(B)/obj/host/kit.o
 CFLAGS := -std=gnu11 -O2 -w -fvisibility=hidden '-Dsection(x)=unused' -Ishim -I$(INC) -I$(INC)/Soundengine -I$(SRC) -Ihost
 
 all: $(B)/lxr-render $(B)/lxr-play $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib $(B)/PHX-D01.app
@@ -19,10 +19,10 @@ $(B)/.patched: $(wildcard patches/*.patch)
 $(B)/obj/%.o: $(VENDOR)/Core/Src/%.c $(B)/.patched
 	@mkdir -p $(dir $@); $(CC) $(CFLAGS) -c $(SRC)/$*.c -o $@
 
-$(B)/obj/host/%.o: host/%.c host/engine.h host/audio.h host/midi.h $(B)/.patched
+$(B)/obj/host/%.o: host/%.c host/engine.h host/audio.h host/midi.h host/module_targets.h $(B)/.patched
 	@mkdir -p $(dir $@); $(CC) $(CFLAGS) -c $< -o $@
 
-$(B)/lxr-render: $(LXR2_OBJS) $(B)/obj/host/render.o $(B)/obj/host/kit.o
+$(B)/lxr-render: $(LXR2_OBJS) $(B)/obj/host/render.o
 	$(CC) $^ -o $@ -lm
 
 # Each engine is a plugin that exports only the lxr_* API, so engines with clashing symbols can coexist.

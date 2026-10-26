@@ -46,6 +46,7 @@ static void send(uint8_t status, uint8_t d1, uint8_t d2)
 static void route_targets(void);
 static void mod_tick(void);
 static LxrMod mod;
+static int morph_have;
 
 const char *lxr_engine_name(void) { return "LXR-2"; }
 
@@ -62,6 +63,7 @@ void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS])
 		if (p[PAR_VOICE_LFO1 + i] < 1 || p[PAR_VOICE_LFO1 + i] > 6) p[PAR_VOICE_LFO1 + i] = 1;
 	}
 	memcpy(activeParameters, p, END_OF_SOUND_PARAMETERS);
+	morph_have = 0;   /* until the host sends this kit's morph pair */
 	route_targets();
 	for (int i = 0; i < END_OF_SOUND_PARAMETERS; i++) {
 		/* Firmware bug: index 127 (PAR_BANK_CHANGE) becomes CC 0 after the +1 offset, and midiParser_ccHandler then
@@ -79,7 +81,31 @@ _Static_assert(END_OF_SOUND_PARAMETERS == LXR_KIT_PARAMS, "LXR-2 kit size");
    Each slot is a modulation node like the firmware's LFOs and velocity: bipolar around the parameter's current value,
    amount 0-100 % of the full range. Sources in 0-1, 0.5 = no change: a CV maps -5..+5 V, an LFO its own output, an
    accent gate 0 V (off) or +5 V (on). The v/o target scales a CV to 1 V/oct on the voice's oscillator, positive
-   volts only (5 octaves). The morph target (the module's PAR_MORPH) isn't modeled. */
+   volts only (5 octaves). The morph target (the module's PAR_MORPH) moves the morph amount between the kit and its
+   morph target (lxr_set_morph), re-sending the parameters that change as the firmware's preset_morph_tick does. */
+#define MODULE_PAR_MORPH 302
+static uint8_t morph_a[LXR_KIT_PARAMS], morph_b[LXR_KIT_PARAMS], morph_base, morph_now;
+
+static void apply_morph(uint8_t amount)
+{
+	uint8_t out[LXR_KIT_PARAMS];
+	lxr_morph_kit(morph_a, morph_b, amount, out);
+	for (int i = 0; i < END_OF_SOUND_PARAMETERS; i++) {
+		if (i == 127 || out[i] == activeParameters[i]) continue;   /* 127: see lxr_load_params */
+		activeParameters[i] = out[i];
+		if (i < 128) send(MIDI_CC, (uint8_t)i, out[i]);
+		else send(CC_2, (uint8_t)(i - 128), out[i]);
+	}
+	morph_now = amount;
+}
+
+void lxr_set_morph(const uint8_t a[LXR_KIT_PARAMS], const uint8_t b[LXR_KIT_PARAMS], uint8_t amount)
+{
+	memcpy(morph_a, a, LXR_KIT_PARAMS);
+	memcpy(morph_b, b, LXR_KIT_PARAMS);
+	morph_base = morph_now = amount;   /* the host loaded the kit morphed by this much */
+	morph_have = 1;
+}
 static ModulationNode slot_node[LXR_MOD_SLOTS];
 static float vo_oct[6];
 
@@ -139,9 +165,11 @@ static void apply_vo(void)
 
 static void mod_tick(void)
 {
+	float morph = morph_base / 255.f;
 	for (int s = 0; s < LXR_MOD_SLOTS; s++) {
 		const uint8_t t = mod.dst[s];
 		uint16_t par = mod.on && t < MODULE_TARGETS ? module_target_param[t] : PAR_NONE;
+		if (par == MODULE_PAR_MORPH) morph += mod.amt[s] / 100.f * (source(mod.src[s]) * 2 - 1);
 		if (par >= END_OF_SOUND_PARAMETERS || (par >= PAR_UNUSED_1 && par <= PAR_UNUSED_6)) par = PAR_NONE;   /* morph; v/o */
 		ModulationNode *n = &slot_node[s];
 		if (n->destination != par) {
@@ -152,6 +180,10 @@ static void mod_tick(void)
 		n->amount = mod.amt[s] / 100.f;
 		modNode_updateValue(n, source(mod.src[s]));
 	}
+	if (morph_have) {
+		const uint8_t m = (uint8_t)((morph < 0 ? 0 : morph > 1 ? 1 : morph) * 255 + .5f);
+		if (m != morph_now) apply_morph(m);
+	}
 	apply_vo();
 }
 
@@ -161,6 +193,7 @@ void lxr_set_mod(const LxrMod *m)
 	mod = *m;
 	if (mod.on != was) route_targets();
 	mod_tick();
+	if (!mod.on && morph_have && morph_now != morph_base) apply_morph(morph_base);   /* desktop: back to the set morph */
 }
 
 void lxr_hit(int voice, uint8_t velocity) { lxr_note(voice, SEQ_DEFAULT_NOTE, velocity); }

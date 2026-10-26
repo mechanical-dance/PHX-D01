@@ -25,6 +25,9 @@ LXR_API void lxr_render(int16_t jack[LXR_JACKS][LXR_BLOCK]); /* one mono buffer 
 #define LXR_MOD_BYTES (3 * LXR_MOD_SLOTS)
 typedef struct { uint8_t on; uint8_t dst[LXR_MOD_SLOTS], amt[LXR_MOD_SLOTS], src[LXR_MOD_SLOTS]; float cv[5]; uint8_t acc[6]; } LxrMod;
 LXR_API void lxr_set_mod(const LxrMod *m);
+/* Optional (LXR-2 only): the morph pair behind the loaded kit (a = the kit, b = the morph target, amount 0-255 as the
+   host morphed it), so a matrix slot aimed at mrp can move the morph. Send after every lxr_load_params. */
+LXR_API void lxr_set_morph(const uint8_t a[LXR_KIT_PARAMS], const uint8_t b[LXR_KIT_PARAMS], uint8_t amount);
 /* Optional (LXR-1 only): user samples, see LxaSamples in audio.h. */
 LXR_API void lxr_set_samples(const int16_t *pcm, const uint32_t *offsets, const uint32_t *sizes, const uint8_t *loops, int count);
 /* LXR-2 kit indexes of the six main oscillator waveforms (drum1-3, snare, cymbal, hihat). */
