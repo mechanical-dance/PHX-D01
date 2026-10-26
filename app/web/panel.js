@@ -375,7 +375,7 @@ function buildDesktop(svg) {
   // menu rows
   const row = (items, y) => items.map(([t, x, fn, title]) => { const b = button(g, x, y, 10, fn, { title }); label(g, x, y + 24, t, 'lbl small'); return b; });
   [ui.shift] = row([['SHIFT', 75, toggleShift, 'Latch SHIFT: voice buttons then mute/unmute'], ['PLAY', 135, () => window.seqToggle?.(), 'Play/stop the sequencer'], ['REC', 180], ['COPY', 232]], 420);
-  [ui.edit, ui.perf] = row([['VOICE', 300, () => setMode('edit'), 'Edit the selected voice'], ['PERF', 355, () => setMode('perf'), 'Performance: voice buttons mute/unmute'], ['LOAD', 410, () => state.mode !== 'load' ? setMode('load') : openFolder(), 'Kit display; again to open a kit folder'], ['SAVE', 465, () => post({ cmd: 'saveKit' }), 'Save the kit (⌘S)']], 420);
+  [ui.edit, ui.perf] = row([['VOICE', 300, () => setMode('edit'), 'Edit the selected voice'], ['PERF', 355, () => setMode('perf'), 'Performance: voice buttons mute/unmute'], ['LOAD', 410, () => state.mode !== 'load' ? setMode('load') : openFolder(), 'Kit display; again to open a kit folder'], ['SAVE', 465, () => phx.save(), 'Save the kit and the project (⌘S)']], 420);
   ui.pages = row(PAGE_NAMES.map((t, i) => [t, 560 + i * 55, () => selectPage(i), `${t} page of the selected voice; again for its second row`]), 420);
   // the 16 step buttons; the first seven are the voices
   ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CLP/CYM', 'CL HH', 'OP HH', 'KIT', 'MORPH', 'SONG', 'PROJECT', 'CONFIG', 'RELOAD', 'LAST STEP', 'FX', 'PATTERN']

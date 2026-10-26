@@ -21,6 +21,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var kits: [Kit] = []
     var kit = 0
     var morphTarget = 0
+    var project = userRoot.appendingPathComponent("Projects/Default")   // the project you're in (Files.swift)
     var morphAmount: UInt8 = 0
     var folders: [URL] = []   // kit banks, in the order they were added
     var samples: [UserSample] = []
@@ -105,7 +106,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "renameBank": renameBank(d)
         case "importKits": importKits()
         case "newBank": newUserBank()
-        case "saveProject": saveProject(d)
+        case "save": saveAll(d)
+        case "saveProjectAs": saveProjectAs(d)
         case "openProject": openProject()
         case "wave": setWave(voice: Int(int("voice")), value: Int(int("value")))
         case "exportPatterns": exportPatterns(d)
@@ -140,7 +142,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             if (try? FileManager.default.copyItem(at: src, to: factory)) != nil { ud.set(true, forKey: "factoryCopied") }
         }
         // built from scratch: the page says "ready" again whenever it reloads, and this must not add banks twice
-        folders = []
+        ensureProject()
+        folders = [projectCard]
         if FileManager.default.fileExists(atPath: factory.path) { folders.append(factory) }
         folders += userBanks()
         paths = paths.filter { !$0.hasPrefix(Bundle.main.bundlePath) }
@@ -148,7 +151,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         folders = App.unique(folders)
         if folders.isEmpty { sendState(); chooseFolder(); return }
         reloadBanks()
-        select(args.last.flatMap { a in kits.firstIndex { $0.bank == URL(fileURLWithPath: (a as NSString).expandingTildeInPath).lastPathComponent } } ?? 0)
+        select(args.last.flatMap { a in kits.firstIndex { $0.dir.path == URL(fileURLWithPath: (a as NSString).expandingTildeInPath).path } } ?? 0)
     }
 
     func chooseFolder() {
@@ -159,20 +162,20 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         p.beginSheetModal(for: window) { r in if r == .OK, let u = p.url { self.load(folder: u) } }
     }
 
-    static func readKits(_ url: URL) -> [Kit] {
+    static func readKits(_ url: URL, bank: String) -> [Kit] {
         let files = ((try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? [])
             .filter { $0.lowercased().hasSuffix(".snd") && !$0.hasPrefix(".") }.sorted()
         var kits: [Kit] = files.compactMap { f in
             var params = [UInt8](repeating: 0, count: Int(LXR_KIT_PARAMS))
             var name = [CChar](repeating: 0, count: 9)
             guard lxr_read_kit(url.appendingPathComponent(f).path, &params, &name) == 0 else { return nil }
-            return Kit(name: String(cString: name).trimmingCharacters(in: .whitespaces), file: f, bank: url.lastPathComponent, params: params, dir: url)
+            return Kit(name: String(cString: name).trimmingCharacters(in: .whitespaces), file: f, bank: bank, params: params, dir: url)
         }
         // empty INIT slots after the last kit, numbered on from the highest NN- prefix
         let next = (kits.compactMap { Int($0.file.prefix(2)) }.max() ?? -1) + 1
         let trailing = kits.reversed().prefix { $0.name.uppercased().hasPrefix("INIT") }.count
         for n in next..<min(bankSlots, next + max(0, initPadding - trailing)) {
-            kits.append(Kit(name: "INIT", file: String(format: "%02d-INIT.SND", n), bank: url.lastPathComponent, params: initParams, dir: url, virtual: true))
+            kits.append(Kit(name: "INIT", file: String(format: "%02d-INIT.SND", n), bank: bank, params: initParams, dir: url, virtual: true))
         }
         return kits
     }
@@ -191,16 +194,16 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         }
         folders = App.unique(folders)
         let edits = Dictionary(kits.filter(\.edited).map { (key($0), $0) }, uniquingKeysWith: { a, _ in a })
-        kits = folders.flatMap(App.readKits).map { k in
+        kits = folders.flatMap { App.readKits($0, bank: bankName($0)) }.map { k in
             guard let e = edits[k.dir.path + "/" + k.file] else { return k }
             var k = k; k.name = e.name; k.params = e.params; k.edited = true; return k
         }
-        UserDefaults.standard.set(folders.map(\.path).filter { !$0.hasPrefix(Bundle.main.bundlePath) }, forKey: "kitFolders")
+        UserDefaults.standard.set(folders.map(\.path).filter { !$0.hasPrefix(Bundle.main.bundlePath) && !$0.hasPrefix(projectsRoot.path) }, forKey: "kitFolders")
     }
 
     // Opening a folder adds it as a bank (or jumps to it if it's already one).
     func load(folder url: URL) {
-        let found = App.readKits(url).filter { !$0.virtual }
+        let found = App.readKits(url, bank: bankName(url)).filter { !$0.virtual }
         guard !found.isEmpty || url.path.hasPrefix(userRoot.path) else {
             let a = NSAlert()
             a.messageText = "No kits in \(url.lastPathComponent)"
@@ -210,7 +213,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         }
         if !folders.contains(where: { $0.path == url.path }) { folders.append(url) }
         reloadBanks()
-        select(kits.firstIndex { $0.bank == url.lastPathComponent } ?? 0)
+        select(kits.firstIndex { $0.dir.path == url.path } ?? 0)
     }
 
     func select(_ i: Int) {
@@ -239,6 +242,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     func sendState() {
         let engines = (0..<lxa_engine_count()).map { String(cString: lxa_engine_name($0)) }
         let s: [String: Any] = ["engines": engines, "kit": kit,
+                                "project": project.lastPathComponent, "projectBank": bankName(projectCard), "projectLayout": layout(of: project),
                                 "kits": kits.map { ["name": $0.name, "file": $0.file, "bank": $0.bank, "edited": $0.edited, "virtual": $0.virtual] },
                                 "waves": kits.isEmpty ? [] : waveParams.map { Int(kits[kit].params[$0]) },
                                 "params": kits.isEmpty ? [] : kits[kit].params.map(Int.init),
@@ -333,7 +337,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
                          NSMenuItem(title: "Hide PHX-D01", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"),
                          NSMenuItem(title: "Quit PHX-D01", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")])
         menu("File", [item("Open Project…", "o", [.command, .option]) { [weak self] in self?.openProject() },
-                      item("Save Project…", "s", [.command, .option, .shift], page("phx.saveProject()")),
+                      item("Save", "s", .command, page("phx.save()")),
+                      item("Save Project As…", "s", [.command, .option, .shift], page("phx.saveProjectAs()")),
                       .separator(),
                       item("Open Kit Folder…", "o") { [weak self] in self?.chooseFolder() },
                       item("Import Kits…", "o", [.command, .shift]) { [weak self] in self?.importKits() },
@@ -341,7 +346,6 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
                       item("Import Patterns…", "i") { [weak self] in self?.importPatterns() },
                       item("Import Samples…", "i", [.command, .shift]) { [weak self] in self?.importSamples() },
                       .separator(),
-                      item("Save Kit", "s") { [weak self] in self?.saveKit() },
                       item("Save Kit As…", "s", [.command, .shift]) { [weak self] in self?.js("phx.saveAs", ["morphed": false]) },
                       item("Save Morph as Kit…", "s", [.command, .option]) { [weak self] in self?.js("phx.saveAs", ["morphed": true]) },
                       .separator(),

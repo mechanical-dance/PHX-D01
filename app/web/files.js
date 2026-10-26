@@ -6,6 +6,11 @@ const VOICES = ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CYM', 'HIHAT'];
 const patternName = i => seq.patterns[i].name || 'PAT-' + SLOTS[i];
 const patternMsg = p => ({ name: p.name, len: p.len, steps: p.steps });
 
+function projectPayload() {
+  return { swing: seq.swing, patterns: seq.patterns.map((p, i) => ({ ...patternMsg(p), name: patternName(i) })),
+    json: JSON.stringify({ patterns: seq.patterns, slot: seq.slot, bpm: seq.bpm, swing: seq.swing }) };
+}
+
 window.phx = {
   sidebar(on) {
     const side = $('side'), show = on ?? side.hidden;
@@ -20,11 +25,9 @@ window.phx = {
     post({ cmd: 'exportPatterns', first: all ? 0 : seq.slot, swing: seq.swing,
       patterns: slots.map(i => ({ ...patternMsg(seq.patterns[i]), name: patternName(i) })) });
   },
-  saveProject() {
-    const all = seq.patterns.map((p, i) => ({ ...patternMsg(p), name: patternName(i) }));
-    post({ cmd: 'saveProject', hw: state.hw, swing: seq.swing, patterns: all,
-      json: JSON.stringify({ patterns: seq.patterns, slot: seq.slot, bpm: seq.bpm, swing: seq.swing }) });
-  },
+  // ⌘S: the kit you're on and the current project. Save Project As: a copy under a new name.
+  save() { post({ cmd: 'save', ...projectPayload() }); },
+  saveProjectAs() { post({ cmd: 'saveProjectAs', hw: state.hw, ...projectPayload() }); },
   saveBank() {
     post({ cmd: 'saveBank', swing: seq.swing, patterns: seq.patterns.map((p, i) => ({ ...patternMsg(p), name: patternName(i) })) });
   },
@@ -82,7 +85,12 @@ function drawSave() {
       if (!save.renaming) return;
       save.renaming = false;
       const name = bankCtl.value.trim();
-      if (name && name !== save.bank) { post({ cmd: 'renameBank', bank: save.bank, name }); save.pendingFrom = save.bank; save.pending = save.bank = name; }
+      if (name && name !== save.bank) {
+        post({ cmd: 'renameBank', bank: save.bank, name });
+        // the project's bank is named after the project, so it comes back as "Project: <name>"
+        const shown = save.bank === state.projectBank ? 'Project: ' + name.replace(/^Project:\s*/, '') : name;
+        save.pendingFrom = save.bank; save.pending = save.bank = shown;
+      }
       drawSave();
     };
     bankCtl.onkeydown = e => {
@@ -96,7 +104,7 @@ function drawSave() {
         .map(b => h('option', { value: b, textContent: b, selected: b === save.bank })));
   }
   const slots = h('select', { 'aria-label': 'Slot', onchange: e => { save.slot = +e.target.value; drawSave(); } },
-    Array.from({ length: 128 }, (_, i) => {
+    Array.from({ length: save.bank === state.projectBank && state.projectLayout === 'desktop' ? 64 : 128 }, (_, i) => {
       const k = at.get(i), nn = String(i).padStart(2, '0');
       return h('option', { value: i, selected: i === save.slot,
         textContent: !k ? `${nn}  — empty` : k.virtual ? `${nn}  INIT (empty)` : `${nn}  ${k.name}` });
@@ -159,7 +167,7 @@ function drawSide() {
   side.replaceChildren(
     section('Kit',
       h('p', { className: 'cur', textContent: k ? `${k.bank} / ${k.name}${k.edited ? ' •' : ''}` : 'No kit' }),
-      h('div', { className: 'btns' }, btn('Save', 'saveKit', '⌘S'), btn('Save as…', () => phx.saveAs({ morphed: false }), '⇧⌘S'),
+      h('div', { className: 'btns' }, btn('Save', () => phx.save(), 'Saves this kit and the project (⌘S)'), btn('Save as…', () => phx.saveAs({ morphed: false }), '⇧⌘S'),
         btn('Save morph as kit…', () => phx.saveAs({ morphed: true }), 'What you hear: the kit morphed toward the target (⌥⌘S)'), btn('Import kits…', 'importKits', '⇧⌘O')),
       h('h4', { textContent: 'Oscillators' }), waves),
     section('Pattern',
@@ -167,8 +175,10 @@ function drawSide() {
       h('div', { className: 'btns' }, btn('Export…', () => phx.exportPatterns(false), '⌘E'), btn('Export A–H…', () => phx.exportPatterns(true), '⇧⌘E'),
         btn('Import…', 'importPatterns', 'Fills slots from the current one on (⌘I)'))),
     section('Project',
-      h('p', { className: 'dim', textContent: 'This bank\'s kits, patterns, samples and tempo, with a card-ready Project00 (module) or PROJ00 (desktop) folder inside.' }),
-      h('div', { className: 'btns' }, btn('Save project…', () => phx.saveProject(), '⌥⇧⌘S'), btn('Open project…', 'openProject', '⌥⌘O'))),
+      h('p', { className: 'cur', textContent: `${state.project || '—'} (${state.projectLayout === 'desktop' ? 'desktop, PROJ00' : 'module, Project00'})` }),
+      h('p', { className: 'dim', textContent: 'Its kits are the "Project:" bank; ⌘S saves them with the patterns, tempo and samples.' }),
+      h('div', { className: 'btns' }, btn('Save', () => phx.save(), '⌘S'), btn('Save project as…', () => phx.saveProjectAs(), '⌥⇧⌘S'),
+        btn('Open project…', 'openProject', '⌥⌘O'))),
     section('Bank',
       h('p', { className: 'dim', textContent: 'This bank\'s kits as NN-NAME.SND plus patterns A–H as .PAT, ready for the SD card.' }),
       h('div', { className: 'btns' }, btn('Save bank as…', () => phx.saveBank(), '⇧⌘B'), btn('New user bank…', 'newBank', '⇧⌘N'))),
