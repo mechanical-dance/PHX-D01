@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" width="160" alt="PHX-D01 logo"></p>
+
 # PHX-D01 (lxr-audition)
 
 Audition LXR-02 kits (`.SND`) on the Mac with the LXR's own sound engine, compiled natively.

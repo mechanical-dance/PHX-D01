@@ -1,68 +1,70 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2c2c2f"/>
-      <stop offset="1" stop-color="#121213"/>
-    </linearGradient>
     <linearGradient id="ember" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#8f1a0a"/>
-      <stop offset="0.5" stop-color="#e4572e"/>
-      <stop offset="1" stop-color="#ffd36a"/>
+      <stop offset="0" stop-color="#7a1208"/><stop offset=".45" stop-color="#e4572e"/><stop offset="1" stop-color="#ffd36a"/>
     </linearGradient>
-    <linearGradient id="liquid" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#6a2fa0"/>
-      <stop offset="1" stop-color="#1f0a36"/>
+    <linearGradient id="potion" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a2fa0"/><stop offset="1" stop-color="#1f0a36"/>
     </linearGradient>
-    <radialGradient id="halo">
-      <stop offset="0" stop-color="#ffd36a" stop-opacity="0.32"/>
-      <stop offset="1" stop-color="#ffd36a" stop-opacity="0"/>
-    </radialGradient>
-    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="9" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <radialGradient id="halo"><stop offset="0" stop-color="#ffb347" stop-opacity=".30"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0 H0 V32" fill="none" stroke="#3a5a48" stroke-width="2"/>
+    </pattern>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <clipPath id="body"><path d="M474 480 L 474 520 L 340 790 Q 330 812 354 812 L 670 812 Q 694 812 684 790 L 550 520 L 550 480 Z"/></clipPath>
-    <clipPath id="vane"><path d="M-328 -13 -319 -8 -310 -3 -301 1 -288 -1 -275 -5 -263 -6 -252 -7 -241 -8 -230 -9 -220 -9 -210 -8 -199 -8 -189 -7 -179 -7 -169 -6 -159 -5 -149 -4 -139 -4 -129 -3 -119 -3 -108 -3 -98 -4 -88 -5 -78 -6 -67 -7 -57 -8 -47 -10 -37 -12 -26 -13 -16 -15 -6 -16 5 -17 15 -18 25 -19 36 -19 47 -19 58 -20 69 -19 80 -19 91 -19 102 -19 113 -20 125 -20 136 -21 148 -23 159 -24 171 -26 182 -29 194 -31 205 -34 216 -37 228 -41 239 -44 251 -47 263 -51 275 -55 287 -58 299 -61 312 -64 326 -65 L333 -55 326 -43 317 -33 307 -24 298 -15 288 -6 277 2 267 10 256 18 245 25 234 32 223 39 212 46 200 52 189 58 177 63 165 69 153 74 141 79 129 83 117 87 105 91 92 95 80 98 67 101 55 103 42 105 30 107 17 109 5 110 -8 111 -20 112 -33 112 -45 112 -58 112 -70 111 -83 110 -95 109 -107 107 -119 105 -131 103 -143 100 -155 97 -166 94 -178 90 -189 86 -200 82 -211 77 -222 72 -232 67 -242 61 -252 55 -262 49 -272 42 -281 35 -289 27 -297 18 -304 8 -314 4 -323 -1 -332 -7 Z"/></clipPath>
-    <path id="spark" d="M0 -1 L 0.2 -0.2 L 1 0 L 0.2 0.2 L 0 1 L -0.2 0.2 L -1 0 L -0.2 -0.2 Z"/>
+    <filter id="rough"><feTurbulence baseFrequency=".04" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="6"/></filter>
+    <clipPath id="body"><path d="M462 360 V470 L268 820 Q252 872 306 872 H718 Q772 872 756 820 L562 470 V360 Z"/></clipPath>
+    <path id="spark" d="M0 -1 L .18 -.18 L 1 0 L .18 .18 L 0 1 L -.18 .18 L -1 0 L -.18 -.18 Z"/>
   </defs>
 
-  <!-- tile -->
-  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#tile)"/>
-  <rect x="104" y="104" width="816" height="816" rx="182" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="4"/>
-  <g fill="#0b0b0c" stroke="#47474b" stroke-width="3">
-    <circle cx="190" cy="190" r="15"/><circle cx="834" cy="190" r="15"/>
-    <circle cx="190" cy="834" r="15"/><circle cx="834" cy="834" r="15"/>
+  <!-- lab bench: graph-paper PCB green, screwed down -->
+  <rect x="96" y="96" width="832" height="832" rx="150" fill="#14231b"/>
+  <rect x="96" y="96" width="832" height="832" rx="150" fill="url(#grid)" opacity=".55"/>
+  <path d="M150 700 H230 L270 660 H330 M694 230 H800 L840 270 V420" fill="none" stroke="#c9a24a" stroke-width="7" opacity=".55"/>
+  <g fill="#c9a24a" opacity=".7"><circle cx="330" cy="660" r="11"/><circle cx="840" cy="420" r="11"/><circle cx="150" cy="700" r="11"/></g>
+  <g fill="#0b120e" stroke="#6b7d70" stroke-width="4">
+    <circle cx="178" cy="178" r="17"/><circle cx="846" cy="178" r="17"/><circle cx="178" cy="846" r="17"/><circle cx="846" cy="846" r="17"/>
   </g>
+  <g stroke="#6b7d70" stroke-width="4"><path d="M168 168 L188 188 M836 168 L856 188 M168 836 L188 856 M836 836 L856 856"/></g>
 
-  <!-- blessing: soft light falling from the feather onto the flask -->
-  <ellipse cx="512" cy="400" rx="300" ry="220" fill="url(#halo)"/>
+  <ellipse cx="560" cy="430" rx="330" ry="250" fill="url(#halo)"/>
 
-  <!-- potion in an Erlenmeyer flask -->
+  <!-- the sonic potion -->
   <g clip-path="url(#body)">
-    <path d="M300 660 C 380 640, 440 680, 512 660 S 650 640, 720 664 L 720 830 L 300 830 Z" fill="url(#liquid)"/>
+    <path d="M240 640 C 340 615, 420 660, 512 638 S 690 612, 790 642 V 900 H240 Z" fill="url(#potion)"/>
+    <g fill="#b98ae0" opacity=".75"><circle cx="440" cy="790" r="16"/><circle cx="560" cy="740" r="11"/><circle cx="600" cy="815" r="20"/><circle cx="490" cy="700" r="7"/></g>
+    <g fill="none" stroke="#e7d6ff" stroke-width="3" opacity=".8"><circle cx="440" cy="790" r="16"/><circle cx="600" cy="815" r="20"/></g>
   </g>
-  <g fill="none" stroke="#e9e6df" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M474 420 L 474 520 L 340 790 Q 330 812 354 812 L 670 812 Q 694 812 684 790 L 550 520 L 550 420" stroke-width="22"/>
-    <path d="M452 414 L 572 414" stroke-width="26"/>
-    <path d="M410 700 L 456 610" stroke-width="12" stroke-opacity="0.45"/>
+  <g fill="none" stroke="#ece6d6" stroke-linejoin="round" stroke-linecap="round" filter="url(#rough)">
+    <path d="M462 350 V470 L268 820 Q252 872 306 872 H718 Q772 872 756 820 L562 470 V350" stroke-width="22"/>
+    <path d="M436 346 H588" stroke-width="28"/>
+    <path d="M330 790 L 410 640" stroke-width="12" opacity=".4"/>
   </g>
-
-  <!-- the feather, drifting down, cupped against the air -->
-  <g opacity="0.35" fill="none" stroke="#ffd36a" stroke-width="5" stroke-linecap="round">
-    <path d="M200 290 C 290 240, 380 250, 450 240"/><path d="M720 300 C 770 265, 810 255, 850 265"/>
-  </g>
-  <g transform="translate(500 395) rotate(-10)" filter="url(#glow)">
-    <path d="M-328 -13 -319 -8 -310 -3 -301 1 -288 -1 -275 -5 -263 -6 -252 -7 -241 -8 -230 -9 -220 -9 -210 -8 -199 -8 -189 -7 -179 -7 -169 -6 -159 -5 -149 -4 -139 -4 -129 -3 -119 -3 -108 -3 -98 -4 -88 -5 -78 -6 -67 -7 -57 -8 -47 -10 -37 -12 -26 -13 -16 -15 -6 -16 5 -17 15 -18 25 -19 36 -19 47 -19 58 -20 69 -19 80 -19 91 -19 102 -19 113 -20 125 -20 136 -21 148 -23 159 -24 171 -26 182 -29 194 -31 205 -34 216 -37 228 -41 239 -44 251 -47 263 -51 275 -55 287 -58 299 -61 312 -64 326 -65 L333 -55 326 -43 317 -33 307 -24 298 -15 288 -6 277 2 267 10 256 18 245 25 234 32 223 39 212 46 200 52 189 58 177 63 165 69 153 74 141 79 129 83 117 87 105 91 92 95 80 98 67 101 55 103 42 105 30 107 17 109 5 110 -8 111 -20 112 -33 112 -45 112 -58 112 -70 111 -83 110 -95 109 -107 107 -119 105 -131 103 -143 100 -155 97 -166 94 -178 90 -189 86 -200 82 -211 77 -222 72 -232 67 -242 61 -252 55 -262 49 -272 42 -281 35 -289 27 -297 18 -304 8 -314 4 -323 -1 -332 -7 Z" fill="url(#ember)"/>
-    <g clip-path="url(#vane)" stroke="#1e1e20" stroke-width="10" stroke-linecap="round"><path d="M2 14 L-25 -38"/><path d="M154 -9 L129 -44"/><path d="M-99 92 L-123 130"/></g>
-    <path d="M-350 -2 C -150 95, 120 85, 330 -60" fill="none" stroke="#fff2c8" stroke-width="9" stroke-linecap="round"/>
+  <!-- masking-tape label -->
+  <g transform="rotate(-4 512 560)">
+    <rect x="410" y="532" width="204" height="58" fill="#e8d9a8" opacity=".95"/>
+    <text x="512" y="572" text-anchor="middle" font-family="Menlo, monospace" font-size="34" font-weight="700" fill="#2b1d10">PHX-D01</text>
   </g>
 
-  <!-- PS1-style twinkles -->
+  <!-- motion lines: drifting in from the top right -->
+  <g fill="none" stroke="#ffd36a" stroke-width="6" stroke-linecap="round" opacity=".5">
+    <path d="M760 150 L 860 105"/><path d="M800 215 L 880 180"/><path d="M700 140 L 760 112"/>
+  </g>
+
+  <!-- phoenix feather, ~35 degrees, settling on the flask mouth -->
+  <g transform="translate(640 330) rotate(-35)" filter="url(#glow)">
+    <g fill="#ff7a2e" opacity=".9"><path d="M-73 -13 q -12 -36 -45 -48 q 15 21 12 51 Z"/><path d="M15 -22 q -15 -45 -56 -60 q 19 26 15 64 Z"/><path d="M88 -36 q -11 -33 -41 -44 q 14 19 11 47 Z"/></g>
+    <path d="M-229 7 -224 9 -220 10 -215 11 -210 13 -206 14 -201 15 -196 16 -189 11 -184 8 -178 6 -173 4 -168 2 -162 1 -157 -0 -152 -2 -147 -3 -142 -4 -137 -5 -132 -5 -127 -6 -122 -7 -117 -9 -112 -13 -107 -17 -102 -19 -97 -18 -92 -16 -88 -14 -83 -13 -78 -13 -73 -13 -68 -14 -63 -15 -58 -15 -54 -16 -49 -16 -44 -17 -39 -17 -34 -18 -29 -18 -24 -19 -19 -21 -15 -25 -10 -29 -6 -31 -1 -30 5 -27 10 -24 15 -22 20 -22 25 -23 30 -23 35 -23 40 -24 45 -24 50 -25 55 -25 60 -25 65 -26 70 -26 75 -27 79 -29 84 -32 88 -36 93 -37 98 -36 104 -33 110 -31 115 -30 120 -30 125 -31 130 -31 136 -32 141 -32 146 -32 151 -33 156 -33 161 -34 167 -34 172 -35 177 -35 182 -36 187 -38 192 -39 197 -40 203 -39 209 -38 215 -37 221 -36 229 -33 L231 -27 229 -20 226 -15 222 -10 218 -5 215 -0 210 3 205 6 201 9 196 11 191 15 186 18 182 21 177 24 172 27 167 29 162 32 157 35 152 37 147 40 141 42 136 44 131 48 127 52 122 56 117 59 111 60 105 60 99 59 93 60 88 61 82 63 77 64 71 66 66 67 60 68 55 69 49 70 43 71 38 72 32 73 26 74 21 76 15 79 10 81 4 83 -2 82 -7 80 -13 78 -19 77 -25 77 -30 76 -36 76 -42 76 -47 76 -53 75 -59 75 -64 74 -70 74 -75 73 -81 72 -86 71 -92 71 -98 72 -103 73 -109 72 -114 70 -119 67 -125 64 -130 61 -135 59 -140 58 -145 56 -151 54 -156 52 -161 49 -166 47 -171 44 -175 42 -180 39 -185 36 -189 32 -194 28 -197 22 -202 21 -207 20 -212 19 -217 17 -221 16 -226 14 -231 13 Z" fill="url(#ember)"/>
+    <path d="M-188 16 -183 15 -178 14 -173 14 -169 13 -164 13 -159 13 -154 13 -149 13 -144 13 -139 13 -134 13 -129 12 -124 12 -119 11 -114 10 -109 8 -104 7 -99 8 -93 9 -88 11 -83 11 -78 11 -73 11 -68 11 -63 10 -57 10 -52 10 -47 10 -42 9 -37 9 -31 9 -26 8 -21 8 -16 7 -10 4 -5 2 0 1 5 1 10 3 16 4 21 4 26 4 31 4 37 3 42 2 47 2 52 1 57 0 63 -0 68 -1 73 -2 78 -2 83 -3 88 -5 93 -7 99 -9 104 -11 109 -11 114 -10 119 -10 124 -10 129 -11 134 -12 139 -13 144 -14 149 -15 154 -16 159 -17 164 -18 169 -19 173 -21 178 -22 183 -23 188 -25 193 -26 197 -28 202 -29 L211 -11 206 -8 201 -5 197 -2 192 0 187 2 182 5 177 7 172 10 167 12 162 15 157 17 152 19 147 21 142 23 137 25 132 27 126 29 121 32 116 34 111 37 106 39 101 40 95 41 90 41 85 42 80 43 74 45 69 46 64 47 59 48 53 49 48 50 43 51 37 52 32 53 27 54 21 54 16 56 11 57 5 59 0 60 -5 60 -11 59 -16 58 -21 58 -27 58 -32 58 -37 58 -43 58 -48 58 -53 57 -59 57 -64 57 -69 57 -74 56 -80 56 -85 55 -90 55 -95 55 -101 55 -106 55 -111 54 -116 52 -121 50 -126 48 -132 47 -137 46 -142 45 -147 43 -152 42 -157 40 -162 39 -167 37 -172 35 -177 33 -182 31 -187 29 -192 27 Z" fill="#ffe08a" opacity=".55"/>
+    <path d="M-250 14 C -90 55, 90 40, 230 -30" fill="none" stroke="#fff2c8" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <!-- PS1 twinkles -->
   <g fill="#fff6d8" filter="url(#glow)">
-    <use href="#spark" transform="translate(800 250) scale(32)"/>
-    <use href="#spark" transform="translate(220 330) scale(20)"/>
-    <use href="#spark" transform="translate(640 580) scale(14)"/>
-    <use href="#spark" transform="translate(400 600) scale(10)"/>
-    <use href="#spark" transform="translate(560 240) scale(9)"/>
+    <use href="#spark" transform="translate(860 300) scale(30)"/>
+    <use href="#spark" transform="translate(470 250) scale(18)"/>
+    <use href="#spark" transform="translate(700 520) scale(13)"/>
+    <use href="#spark" transform="translate(380 470) scale(10)"/>
   </g>
 </svg>
