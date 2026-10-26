@@ -2,6 +2,8 @@
 
 Audition LXR kits (`.SND`) on the Mac with the LXR's own sound engine, compiled natively. No SD-card swapping.
 
+**Platform:** macOS only (Apple Silicon).
+
 - **The real engine.** The open-source Erica Synths LXR-02 firmware, built for macOS. An optional second engine plays
   the original Sonic Potions LXR (from Brendan Clarke's LXR02Open).
 - **Two panels, two models** The LXR-02 desktop and the LXR-Drum Eurorack module, with the hardware's menu pages,
@@ -31,7 +33,7 @@ them yourself:
   [LXR-02 page](https://www.ericasynths.lv/shop/drum-machines/drum-synthesizer-lxr-02) under Downloads:
   *Factory SD content* is the kits the machine ships with, and *Sound Pack 1 (Hrtl DLC)* is a kit pack by Leoš Hort.
   You can also open a copy of your own SD card.
-- **Xcode command-line tools** (`xcode-select --install`) for the compiler. The app is built and tested on Apple Silicon.
+- **macOS on Apple Silicon** with the Xcode command-line tools (`xcode-select --install`). Other platforms are not supported.
 
 ## Quick start
 ```sh
