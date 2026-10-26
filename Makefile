@@ -72,6 +72,6 @@ $(APP): app/AppIcon.icns $(wildcard app/*.swift) app/bridge.h host/audio.h host/
 	cp $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib $@/Contents/MacOS/
 	cp -R app/web $@/Contents/Resources/
 	cp app/AppIcon.icns $@/Contents/Resources/
-	cp -R factory/Erica-factory $@/Contents/Resources/
+	cp -R factory/Erica-factory factory/INIT.SND $@/Contents/Resources/
 	cp app/Info.plist $@/Contents/
 	codesign --force --deep -s - $@

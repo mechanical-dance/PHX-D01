@@ -90,14 +90,61 @@ function turnable(node, onStep, px = 7) {
     while (Math.abs(acc) >= 24) { onStep(Math.sign(acc)); acc -= Math.sign(acc) * 24; }
   }, { passive: false });
 }
-function knob(parent, x, y, r, onStep, title) {
+// Knobs show the value they edit: angle and arc over -135..135 degrees. In voice edit mode a drag of ~160 px sweeps
+// the whole range (shift: fine), the wheel moves one step, double-click restores the kit's saved value.
+// On the kit display they step through kit, engine, velocity and output like the hardware.
+const ARC = 135;
+function arcPath(x, y, r, a0, a1) {
+  const p = a => [x + r * Math.sin(a * Math.PI / 180), y - r * Math.cos(a * Math.PI / 180)];
+  const [x0, y0] = p(a0), [x1, y1] = p(a1);
+  return `M${x0} ${y0} A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1} ${y1}`;
+}
+function knob(parent, x, y, r, onStep, title, k) {
   const g = el('g', { class: 'knob' }, parent);
+  el('path', { class: 'track', d: arcPath(x, y, r + 7, -ARC, ARC) }, g);
+  const arc = el('path', { class: 'arc', d: '' }, g);
   el('circle', { class: 'body', cx: x, cy: y, r }, g);
   const mark = el('line', { class: 'mark', x1: x, y1: y - r * 0.35, x2: x, y2: y - r * 0.85 }, g);
   el('title', {}, g).textContent = title;
-  let angle = 0;
-  turnable(g, d => { angle += d * 18; mark.setAttribute('transform', `rotate(${angle} ${x} ${y})`); onStep(d); });
+  const kn = { g, arc, mark, x, y, r, angle: 0 };
+  (ui.knobs ||= [])[k] = kn;
+  g.addEventListener('pointerdown', e => {
+    g.setPointerCapture(e.pointerId);
+    const info = knobInfo(k), y0 = e.clientY;
+    let last = e.clientY;
+    const move = ev => {
+      if (info) {
+        const span = info.hi - info.lo, px = ev.shiftKey ? 600 : 160;
+        knobSet(k, Math.round(info.v + (y0 - ev.clientY) * span / px));
+      } else {
+        const d = Math.trunc((last - ev.clientY) / 12);
+        if (d) { onStep(d); last -= d * 12; kn.angle += d * 18; drawKnobs(); }
+      }
+    };
+    const up = () => { g.removeEventListener('pointermove', move); g.removeEventListener('pointerup', up); };
+    g.addEventListener('pointermove', move); g.addEventListener('pointerup', up);
+  });
+  g.addEventListener('wheel', e => {
+    e.preventDefault();
+    kn.acc = (kn.acc || 0) - e.deltaY;
+    while (Math.abs(kn.acc) >= 24) {
+      const d = Math.sign(kn.acc); kn.acc -= d * 24;
+      const info = knobInfo(k);
+      if (info) knobSet(k, info.v + d); else { onStep(d); kn.angle += d * 18; drawKnobs(); }
+    }
+  }, { passive: false });
+  g.addEventListener('dblclick', () => knobReset(k));
   return g;
+}
+function drawKnobs() {
+  (ui.knobs || []).forEach((kn, k) => {
+    if (!kn) return;
+    const info = knobInfo(k);
+    const a = info ? -ARC + 2 * ARC * (info.v - info.lo) / Math.max(1, info.hi - info.lo) : kn.angle;
+    kn.mark.setAttribute('transform', `rotate(${a} ${kn.x} ${kn.y})`);
+    kn.arc.setAttribute('d', info ? arcPath(kn.x, kn.y, kn.r + 7, -ARC, Math.max(a, -ARC + 0.5)) : '');
+    kn.g.classList.toggle('idle', state.mode === 'edit' && !info);
+  });
 }
 function encoder(parent, x, y, r, onStep) {
   const g = el('g', { class: 'knob enc' }, parent);
@@ -205,6 +252,7 @@ const pad = (s, n) => String(s).slice(0, n).padEnd(n);
 const OUT_NAMES = [['mix', 'mnL', 'mnR', 'o2L', 'o2R'], ['mix', 'o1', 'o2', 'o3', 'o4']];
 function displayRows() {
   if (state.mode === 'edit') return editRows();
+  if (state.mode === 'perf') return perfRows();
   const k = state.kits[state.kit];
   if (Date.now() < state.paramUntil) {
     const names = KNOBS.map((kn, i) => { const n = typeof kn.name === 'function' ? kn.name() : kn.name; return i === state.knobFocus ? n.toUpperCase() : n; });
@@ -212,19 +260,33 @@ function displayRows() {
     return [names.map(n => pad(n, 4)).join(''), vals.map(v => pad(v, 4)).join('')];
   }
   if (!k) return ['Load: Kit', 'no kits: LOAD'];
-  return [pad('Load: Kit', 12) + (state.engine === 0 ? 'LX2' : 'LX1'), `[${String(bankNumber(state.kit)).padStart(2)}] ${k.name}`];
+  return [pad(pad(k.bank, 12), 12) + (state.engine === 0 ? 'LX2' : 'LX1'), `[${String(bankNumber(state.kit) - 1).padStart(2, '0')}] ${k.name}`];
 }
 // Kits grouped by bank (one bank per folder), numbered within their bank.
 function bankNumber(i) { const b = state.kits[i]?.bank; let n = 0; for (let j = 0; j <= i; j++) if (state.kits[j].bank === b) n++; return n; }
-function fillKits(s) {
+function bankNames() { return [...new Set(state.kits.map(k => k.bank || 'Kits'))]; }
+// Kit menus: one bank at a time in the kit menu, every bank (grouped) for the morph target.
+function fillKits(s, bank) {
   s.replaceChildren();
   let group = null;
   state.kits.forEach((k, i) => {
-    if (!group || group.label !== (k.bank || 'Kits')) { group = document.createElement('optgroup'); group.label = k.bank || 'Kits'; s.appendChild(group); }
+    if (bank !== undefined && k.bank !== bank) return;
+    if (bank === undefined && (!group || group.label !== (k.bank || 'Kits'))) { group = document.createElement('optgroup'); group.label = k.bank || 'Kits'; s.appendChild(group); }
     const o = document.createElement('option');
-    o.value = i; o.textContent = `${String(bankNumber(i)).padStart(2, '0')}  ${k.name}  (${k.file})`;
-    group.appendChild(o);
+    o.value = i; o.textContent = `${String(bankNumber(i) - 1).padStart(2, '0')}  ${k.name}${k.virtual ? '' : '  (' + k.file + ')'}`;
+    (group || s).appendChild(o);
   });
+}
+function fillBanks() {
+  const b = document.getElementById('bank'), names = bankNames(), cur = state.kits[state.kit]?.bank;
+  if (b.dataset.names !== names.join('|')) {
+    b.replaceChildren(...names.map(n => Object.assign(document.createElement('option'), { value: n, textContent: n })));
+    b.dataset.names = names.join('|');
+  }
+  b.value = cur ?? '';
+  const sel = document.getElementById('kits');
+  if (sel.dataset.bank !== cur || sel.dataset.n !== String(state.kits.length)) { fillKits(sel, cur); sel.dataset.bank = cur; sel.dataset.n = state.kits.length; }
+  sel.value = state.kit;
 }
 function sendMorph() {
   post({ cmd: 'morph', amount: +document.getElementById('morph').value, target: +document.getElementById('mtg').value || 0 });
@@ -235,14 +297,14 @@ function refresh() {
   if (ui.row1) { ui.row1.textContent = pad(r1, 16); ui.row2.textContent = pad(r2, 16); }
   document.querySelectorAll('#hw button').forEach(b => b.setAttribute('aria-checked', String(+b.dataset.v === state.hw)));
   document.querySelectorAll('#engine button').forEach(b => b.setAttribute('aria-checked', String(+b.dataset.v === state.engine)));
-  const sel = document.getElementById('kits');
   const mtg = document.getElementById('mtg');
-  if (sel.options.length !== state.kits.length) for (const s of [sel, mtg]) fillKits(s);
-  sel.value = state.kit;
+  fillBanks();
+  if (mtg.dataset.n !== String(state.kits.length)) { fillKits(mtg); mtg.dataset.n = state.kits.length; }
   if (mtg.value === '' && state.kits.length) mtg.value = 0;
   (ui.outs || []).forEach((n, j) => n.classList.toggle('patched', state.solo === j + 1));
   (ui.acc || []).forEach((n, j) => n.classList.toggle('patched', !!state.accent[j]));
   markButtons();
+  drawKnobs();
   document.getElementById('hint').textContent = state.hw === DESKTOP
     ? '1–7 trigger · space play · [ ] velocity · ←/→ kit · e engine · o jack · m hardware'
     : '1–7 trigger · shift accent · click ACC to hold · space play · ←/→ kit · o jack · m hardware';
@@ -285,7 +347,7 @@ function buildDesktop(svg) {
   // logo and display
   label(g, 240, 128, 'PHX-D01', 'logo'); label(g, 240, 162, 'KIT AUDITIONER', 'logo sub');
   display(g, 88, 182, 304, 86, 'lcd');
-  [115, 195, 275, 355].forEach((x, k) => knob(g, x, 330, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': edits the value shown above it'));
+  [115, 195, 275, 355].forEach((x, k) => knob(g, x, 330, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': drag or scroll; double-click resets', k));
   encoder(g, 505, 205, 50, d => setKit(state.kit + d));
   label(g, 505, 282, 'DATA', 'lbl');
 
@@ -311,7 +373,7 @@ function buildDesktop(svg) {
   // menu rows
   const row = (items, y) => items.map(([t, x, fn, title]) => { const b = button(g, x, y, 10, fn, { title }); label(g, x, y + 24, t, 'lbl small'); return b; });
   [ui.shift] = row([['SHIFT', 75, toggleShift, 'Latch SHIFT: voice buttons then mute/unmute'], ['PLAY', 135, () => window.seqToggle?.(), 'Play/stop the sequencer'], ['REC', 180], ['COPY', 232]], 420);
-  [ui.edit, ui.perf] = row([['VOICE', 300, () => setMode('edit'), 'Edit the selected voice'], ['PERF', 355, () => setMode('load'), 'Back to the kit display'], ['LOAD', 410, () => state.mode === 'edit' ? setMode('load') : openFolder(), 'Kit display; again to open a kit folder'], ['SAVE', 465, () => post({ cmd: 'saveKit' }), 'Save the kit (⌘S)']], 420);
+  [ui.edit, ui.perf] = row([['VOICE', 300, () => setMode('edit'), 'Edit the selected voice'], ['PERF', 355, () => setMode('perf'), 'Performance: voice buttons mute/unmute'], ['LOAD', 410, () => state.mode !== 'load' ? setMode('load') : openFolder(), 'Kit display; again to open a kit folder'], ['SAVE', 465, () => post({ cmd: 'saveKit' }), 'Save the kit (⌘S)']], 420);
   ui.pages = row(PAGE_NAMES.map((t, i) => [t, 560 + i * 55, () => selectPage(i), `${t} page of the selected voice; again for its second row`]), 420);
   // the 16 step buttons; the first seven are the voices
   ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CLP/CYM', 'CL HH', 'OP HH', 'KIT', 'MORPH', 'SONG', 'PROJECT', 'CONFIG', 'RELOAD', 'LAST STEP', 'FX', 'PATTERN']
@@ -365,7 +427,7 @@ function buildModule(svg) {
   display(g, 180, 238, 290, 76, 'seg');
   label(g, 560, 210, 'DATA', 'lbl small');
   encoder(g, 560, 272, 40, d => setKit(state.kit + d));
-  [205, 300, 395, 490].forEach((x, k) => knob(g, x, 395, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': edits the value shown above it'));
+  [205, 300, 395, 490].forEach((x, k) => knob(g, x, 395, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': drag or scroll; double-click resets', k));
 
   // DRUM + select buttons; in perform mode the select buttons fire the voices
   el('rect', { x: 38, y: 440, width: 64, height: 88, rx: 4, fill: '#2b2b2d' }, g);
@@ -403,6 +465,7 @@ function initToolbar() {
     eng.appendChild(b);
   });
   document.getElementById('kits').onchange = e => setKit(+e.target.value);
+  document.getElementById('bank').onchange = e => setKit(state.kits.findIndex(k => k.bank === e.target.value));
   document.getElementById('open').onclick = openFolder;
   document.getElementById('morph').oninput = sendMorph;
   document.getElementById('mtg').onchange = sendMorph;
@@ -434,7 +497,7 @@ document.addEventListener('keydown', e => {
 
 // Called by the host with {engines, kits: [{name, file}], kit, folder}.
 window.lxrState = s => {
-  if (s.params) state.params = s.params.slice();
+  if (s.params) { state.params = s.params.slice(); state.savedParams = s.params.slice(); }
   const enginesChanged = s.engines && s.engines.join() !== state.engines.join();
   Object.assign(state, s);
   if (enginesChanged) initToolbar();

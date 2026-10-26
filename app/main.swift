@@ -3,7 +3,16 @@
 import Cocoa
 import WebKit
 
-struct Kit { var name: String; let file: String; let bank: String; var params: [UInt8]; let dir: URL; var edited = false }
+struct Kit { var name: String; var file: String; let bank: String; var params: [UInt8]; let dir: URL; var edited = false; var virtual = false }
+
+// The firmware's limits: 64 kits per project; banks show up to 5 empty INIT slots until they reach it.
+let bankSize = 64, initPadding = 5
+let userRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents/PHX-D01")
+let initParams: [UInt8] = {
+    var p = [UInt8](repeating: 0, count: Int(LXR_KIT_PARAMS)), n = [CChar](repeating: 0, count: 9)
+    if let u = Bundle.main.resourceURL?.appendingPathComponent("INIT.SND") { _ = lxr_read_kit(u.path, &p, &n) }
+    return p
+}()
 
 final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var window: NSWindow!
@@ -91,6 +100,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "saveKitAs": saveKitAs(morphed: false)
         case "saveMorph": saveKitAs(morphed: true)
         case "importKits": importKits()
+        case "newBank": newUserBank()
         case "wave": setWave(voice: Int(int("voice")), value: Int(int("value")))
         case "exportPatterns": exportPatterns(d)
         case "importPatterns": importPatterns()
@@ -113,8 +123,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         let args = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
         var paths = UserDefaults.standard.stringArray(forKey: "kitFolders") ?? UserDefaults.standard.string(forKey: "kitFolder").map { [$0] } ?? []
         paths += args.map { ($0 as NSString).expandingTildeInPath }
-        // Erica's factory kits ship inside the app and are always the first bank.
+        // Erica's factory kits ship inside the app and are always the first bank; then the user banks.
         if let factory = Bundle.main.resourceURL?.appendingPathComponent("Erica-factory") { folders.append(factory) }
+        folders += userBanks()
         for path in paths where FileManager.default.fileExists(atPath: path) && !folders.contains(where: { $0.path == path }) {
             folders.append(URL(fileURLWithPath: path))
         }
@@ -134,12 +145,19 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     static func readKits(_ url: URL) -> [Kit] {
         let files = ((try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? [])
             .filter { $0.lowercased().hasSuffix(".snd") && !$0.hasPrefix(".") }.sorted()
-        return files.compactMap { f in
+        var kits: [Kit] = files.compactMap { f in
             var params = [UInt8](repeating: 0, count: Int(LXR_KIT_PARAMS))
             var name = [CChar](repeating: 0, count: 9)
             guard lxr_read_kit(url.appendingPathComponent(f).path, &params, &name) == 0 else { return nil }
             return Kit(name: String(cString: name).trimmingCharacters(in: .whitespaces), file: f, bank: url.lastPathComponent, params: params, dir: url)
         }
+        // empty INIT slots after the last kit, numbered on from the highest NN- prefix
+        let next = (kits.compactMap { Int($0.file.prefix(2)) }.max() ?? -1) + 1
+        let trailing = kits.reversed().prefix { $0.name.uppercased().hasPrefix("INIT") }.count
+        for n in next..<min(bankSize, next + max(0, initPadding - trailing)) {
+            kits.append(Kit(name: "INIT", file: String(format: "%02d-INIT.SND", n), bank: url.lastPathComponent, params: initParams, dir: url, virtual: true))
+        }
+        return kits
     }
 
     func reloadBanks() {
@@ -149,8 +167,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
 
     // Opening a folder adds it as a bank (or jumps to it if it's already one).
     func load(folder url: URL) {
-        let found = App.readKits(url)
-        guard !found.isEmpty else {
+        let found = App.readKits(url).filter { !$0.virtual }
+        guard !found.isEmpty || url.path.hasPrefix(userRoot.path) else {
             let a = NSAlert()
             a.messageText = "No kits in \(url.lastPathComponent)"
             a.informativeText = "Pick a folder that contains LXR .SND kit files."
@@ -188,7 +206,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     func sendState() {
         let engines = (0..<lxa_engine_count()).map { String(cString: lxa_engine_name($0)) }
         let s: [String: Any] = ["engines": engines, "kit": kit,
-                                "kits": kits.map { ["name": $0.name, "file": $0.file, "bank": $0.bank, "edited": $0.edited] },
+                                "kits": kits.map { ["name": $0.name, "file": $0.file, "bank": $0.bank, "edited": $0.edited, "virtual": $0.virtual] },
                                 "waves": kits.isEmpty ? [] : waveParams.map { Int(kits[kit].params[$0]) },
                                 "params": kits.isEmpty ? [] : kits[kit].params.map(Int.init),
                                 "sampleEngines": (0..<lxa_engine_count()).map { lxa_engine_has_samples($0) != 0 },
@@ -283,6 +301,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
                          NSMenuItem(title: "Quit PHX-D01", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")])
         menu("File", [item("Open Kit Folder…", "o") { [weak self] in self?.chooseFolder() },
                       item("Import Kits…", "o", [.command, .shift]) { [weak self] in self?.importKits() },
+                      item("New User Bank…", "n", [.command, .shift]) { [weak self] in self?.newUserBank() },
                       item("Import Patterns…", "i") { [weak self] in self?.importPatterns() },
                       item("Import Samples…", "i", [.command, .shift]) { [weak self] in self?.importSamples() },
                       .separator(),

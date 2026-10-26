@@ -73,18 +73,28 @@ function toggleMute(t) {
   post({ cmd: 'mute', t, on: state.mutes[t] });
   refresh();
 }
-// A voice button: mute with SHIFT, otherwise play it (and select it for editing).
+// Desktop voice button: SHIFT + voice mutes; in PERF mode the voice buttons mute on their own (manual p.14).
+// Otherwise it plays the voice and selects it for editing.
 function voicePress(t, e) {
-  if (state.shift || e?.altKey) { toggleMute(t); return; }
+  if (state.shift || e?.altKey || (state.hw === DESKTOP && state.mode === 'perf')) { toggleMute(t); return; }
   hit(t, e?.shiftKey);
   if (state.voice !== t) { state.voice = t; state.sub = 0; if (state.mode === 'edit') refresh(); }
 }
-// Module select buttons: DRUM held picks the voice; in edit mode they pick the page; in perform mode they play.
+// Module select buttons (manual p.14): with DRUM held they pick the voice, in edit mode they pick the page, in
+// perform mode they play. A mouse can't hold two buttons, so DRUM and SHIFT latch, and shift-click works too.
 const MODULE_PAGES = [0, 1, 2, 3, 4, 5, 7];
 function modulePress(i, e) {
-  if (state.drum) { state.voice = i; state.sub = 0; state.drum = false; state.mode = 'edit'; refresh(); return; }
+  if (state.mode === 'edit' && (state.drum || state.shift || e?.shiftKey)) {
+    state.voice = i; state.sub = 0; state.drum = false; state.shift = false; state.paramUntil = 0;
+    hit(i);
+    refresh(); return;
+  }
   if (state.mode === 'edit') { selectPage(MODULE_PAGES[i]); return; }
-  voicePress(i, e);
+  if (state.shift || e?.altKey) { toggleMute(i); return; }
+  hit(i, e?.shiftKey);
+}
+function perfRows() {
+  return ['Perf: mutes', TRIGGERS.map((_, t) => (state.mutes[t] ? '-' : String(t + 1))).join(' ')];
 }
 
 function markButtons() {
@@ -93,7 +103,7 @@ function markButtons() {
   ui.shift?.classList.toggle('on', state.shift);
   ui.drum?.classList.toggle('on', state.drum);
   ui.edit?.classList.toggle('on', state.mode === 'edit');
-  ui.perf?.classList.toggle('on', state.mode !== 'edit');
+  ui.perf?.classList.toggle('on', state.mode === 'perf' || (state.hw === MODULE && state.mode !== 'edit'));
 }
 
 // Option + 1-7 mutes from the keyboard.
@@ -102,3 +112,23 @@ document.addEventListener('keydown', e => {
   const n = e.code.startsWith('Digit') ? +e.code.slice(5) : 0;
   if (n >= 1 && n <= 7) { toggleMute(n - 1); e.preventDefault(); e.stopImmediatePropagation(); }
 }, true);
+
+// Absolute knob access in voice edit mode (null on the kit display or an empty slot).
+function knobInfo(k) {
+  if (state.mode !== 'edit') return null;
+  const s = rowSlots()[k];
+  if (!s || !state.params.length) return null;
+  const [lo, hi] = range(s[3]);
+  return { v: state.params[s[2]] ?? 0, lo, hi };
+}
+function knobSet(k, v) {
+  const info = knobInfo(k);
+  if (!info) return;
+  state.knobFocus = k; state.paramUntil = Date.now() + 2500;
+  editKnob(k, Math.min(info.hi, Math.max(info.lo, v)) - info.v);
+  refresh(); clearTimeout(knobSet.t); knobSet.t = setTimeout(refresh, 2600);
+}
+function knobReset(k) {
+  const s = rowSlots()[k];
+  if (s && state.savedParams) knobSet(k, state.savedParams[s[2]]);
+}

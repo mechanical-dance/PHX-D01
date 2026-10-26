@@ -136,12 +136,39 @@ extension App {
     }
 
     // ---------- kits ----------
+    // Saves in place; an INIT slot becomes a real file. The factory bank is inside the app, so it saves as.
     func saveKit() {
         guard !kits.isEmpty else { return }
         let k = kits[kit]
+        if k.dir.path.hasPrefix(Bundle.main.bundlePath) { saveKitAs(morphed: false); return }
         if write(LxrFile.kitData(name: k.name, params: k.params), to: k.dir.appendingPathComponent(k.file)) {
-            kits[kit].edited = false
-            sendState()
+            reveal(folder: k.dir, file: k.file)
+        }
+    }
+
+    // ---------- user banks: folders in ~/Documents/PHX-D01/Banks ----------
+    func userBanks() -> [URL] {
+        let root = userRoot.appendingPathComponent("Banks")
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: root.path) { try? fm.createDirectory(at: root.appendingPathComponent("User 1"), withIntermediateDirectories: true) }
+        let dirs = (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+        return dirs.filter { $0.hasDirectoryPath && !$0.lastPathComponent.hasPrefix(".") }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    func newUserBank() {
+        let a = NSAlert()
+        a.messageText = "New user bank"
+        a.informativeText = "A folder in ~/Documents/PHX-D01/Banks. It starts with 5 INIT kits to save over."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        field.stringValue = "User \(userBanks().count + 1)"
+        a.accessoryView = field
+        a.addButton(withTitle: "Create"); a.addButton(withTitle: "Cancel")
+        a.beginSheetModal(for: window) { r in
+            guard r == .alertFirstButtonReturn, !field.stringValue.isEmpty else { return }
+            let dir = userRoot.appendingPathComponent("Banks").appendingPathComponent(field.stringValue)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            self.reveal(folder: dir, file: nil)
+            self.select(self.kits.firstIndex { $0.dir.path == dir.path } ?? self.kit)
         }
     }
 
@@ -150,7 +177,7 @@ extension App {
         guard !kits.isEmpty else { return }
         let k = kits[kit]
         let p = NSSavePanel()
-        p.directoryURL = k.dir
+        p.directoryURL = k.dir.path.hasPrefix(Bundle.main.bundlePath) ? userBanks().first : k.dir
         p.allowedContentTypes = []
         p.nameFieldStringValue = morphed ? LxrFile.fileName(bankKits.count, "M" + k.name, "SND") : LxrFile.fileName(bankKits.count, k.name, "SND")
         p.message = "The kit's name is the file name without its NN- prefix (8 characters)."

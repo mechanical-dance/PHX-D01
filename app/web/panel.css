@@ -139,3 +139,7 @@ main { flex: 1; min-height: 260px; display: flex; align-items: center; justify-c
 .btn.on .cap { fill: #ffd36a; filter: url(#glow); }
 .btn.muted .cap { fill: #3a3a3a; opacity: .45; }
 .btn.muted.lit .cap { fill: #6a6a6a; }
+.knob .track { fill: none; stroke: #2a2a2a; stroke-width: 3; stroke-linecap: round; }
+.knob .arc { fill: none; stroke: #ffd36a; stroke-width: 3; stroke-linecap: round; }
+.knob.idle { opacity: .45; }
+.knob { cursor: ns-resize; }
