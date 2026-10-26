@@ -139,12 +139,13 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             try? FileManager.default.createDirectory(at: factory.deletingLastPathComponent(), withIntermediateDirectories: true)
             if (try? FileManager.default.copyItem(at: src, to: factory)) != nil { ud.set(true, forKey: "factoryCopied") }
         }
+        // built from scratch: the page says "ready" again whenever it reloads, and this must not add banks twice
+        folders = []
         if FileManager.default.fileExists(atPath: factory.path) { folders.append(factory) }
-        folders += userBanks().filter { $0.path != factory.path }
+        folders += userBanks()
         paths = paths.filter { !$0.hasPrefix(Bundle.main.bundlePath) }
-        for path in paths where FileManager.default.fileExists(atPath: path) && !folders.contains(where: { $0.path == path }) {
-            folders.append(URL(fileURLWithPath: path))
-        }
+        folders += paths.filter { FileManager.default.fileExists(atPath: $0) }.map { URL(fileURLWithPath: $0) }
+        folders = App.unique(folders)
         if folders.isEmpty { sendState(); chooseFolder(); return }
         reloadBanks()
         select(args.last.flatMap { a in kits.firstIndex { $0.bank == URL(fileURLWithPath: (a as NSString).expandingTildeInPath).lastPathComponent } } ?? 0)
@@ -176,6 +177,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         return kits
     }
 
+    static func unique(_ urls: [URL]) -> [URL] {
+        var seen = Set<String>()
+        return urls.filter { seen.insert($0.standardizedFileURL.resolvingSymlinksInPath().path).inserted }
+    }
+
     // Re-read every bank, keeping unsaved edits (moved: a renamed bank's old path -> new path).
     func reloadBanks(moved: (URL, URL)? = nil) {
         func key(_ k: Kit) -> String {
@@ -183,6 +189,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             if let (a, b) = moved, d == a.path { d = b.path }
             return d + "/" + k.file
         }
+        folders = App.unique(folders)
         let edits = Dictionary(kits.filter(\.edited).map { (key($0), $0) }, uniquingKeysWith: { a, _ in a })
         kits = folders.flatMap(App.readKits).map { k in
             guard let e = edits[k.dir.path + "/" + k.file] else { return k }
