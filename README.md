@@ -43,3 +43,8 @@ content*, *Sound Pack 1 (Hrtl DLC)*), or open your own card. See [Install](docs/
 
 PHX-D01 is not affiliated with Erica Synths or Sonic Potions. "LXR", "LXR-02" and "Erica Synths" are their names.
 Kits are their authors' work and aren't included here.
+
+## Licence
+GPL-3.0 (see `LICENSE`), the same as the Erica Synths firmware it builds on.
+The optional LXR-1 engine is built from your own clone of LXR02Open under that project's non-commercial licence.
+It isn't part of this repo, so don't share builds that include `engine-lxr1.dylib`.
