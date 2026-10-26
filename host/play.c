@@ -1,4 +1,4 @@
-/* lxr-play: audition LXR kits live. Loads each engine plugin (build/engine-*.dylib), plays through CoreAudio.
+/* phx-play: audition LXR kits live. Loads each engine plugin (build/engine-*.dylib), plays through CoreAudio.
    Keys: 1-7 are the 7 triggers for the 6 voices (drum1-3, snare, cymbal, hihat; 6 = closed hat, 7 = open hat on the
    same voice, closed chokes open), space fires all in turn, left/right or j/k change kit,
    e switch engine, m switch hardware (LXR-02 desktop / LXR-Drum module), o solo an output jack, q quit.
@@ -61,7 +61,7 @@ static void status(int kit, int eng, int hw, int vel, int solo_jack)
 
 int main(int argc, char **argv)
 {
-	if (argc < 2) { fprintf(stderr, "usage: lxr-play KIT.SND|DIR ...\n"); return 2; }
+	if (argc < 2) { fprintf(stderr, "usage: phx-play KIT.SND|DIR ...\n"); return 2; }
 	char dir[1024];
 	uint32_t sz = sizeof dir;
 	_NSGetExecutablePath(dir, &sz);
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
 	if (!n_kits) { fprintf(stderr, "no readable .SND kits\n"); return 1; }
 
 	int kit = 0, eng = 0;
-	if (!lxa_start(dir)) { fprintf(stderr, "no engines next to lxr-play, or no audio output\n"); return 1; }
+	if (!lxa_start(dir)) { fprintf(stderr, "no engines next to phx-play, or no audio output\n"); return 1; }
 	lxa_load(params[kit]);
 
 	tcgetattr(0, &saved);

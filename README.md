@@ -15,7 +15,7 @@ Audition LXR kits (`.SND`) on the Mac with the LXR's own sound engine, compiled 
 - **Projects.** Kits, samples and patterns in one folder.
 - **Step sequencer.** 7 tracks, up to 32 steps, per-step velocity, accent and pitch, swing, and 8 pattern slots.
 - **MIDI in and out, any audio device.** Output is a stereo mix or the 4 jacks on separate channels.
-- **Command-line tools.** `lxr-play` plays kits live in the terminal; `lxr-render` renders a kit to WAV.
+- **Command-line tools.** `phx-play` plays kits live in the terminal; `phx-render` renders a kit to WAV.
 
 <p align="center"><img src="docs/logo.png" width="160" alt="PHX-D01 logo"></p>
 

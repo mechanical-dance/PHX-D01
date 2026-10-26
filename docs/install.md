@@ -16,7 +16,7 @@ Other locations: `make VENDOR=/path/to/lxr-desktop-app VENDOR1=/path/to/LXR02Ope
 ## Build
 ```sh
 make app    # build/PHX-D01.app
-make        # app, lxr-play and lxr-render
+make        # app, phx-play and phx-render
 ```
 
 ## Kits
@@ -28,7 +28,7 @@ Only an INIT kit is included.
 
 ## Command-line tools
 ```sh
-./build/lxr-play path/to/kits             # play kits live
-./build/lxr-render KIT.SND out/kit.wav    # render each voice to WAV
+./build/phx-play path/to/kits             # play kits live
+./build/phx-render KIT.SND out/kit.wav    # render each voice to WAV
 ```
-`lxr-play` keys: 1–7 voices, space all, ←/→ kit, `e` engine, `m` desktop/module, `o` solo output, `q` quit.
+`phx-play` keys: 1–7 voices, space all, ←/→ kit, `e` engine, `m` desktop/module, `o` solo output, `q` quit.

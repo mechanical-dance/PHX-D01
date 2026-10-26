@@ -1,4 +1,4 @@
-/* lxr-render: load a kit, hit each of the 6 voices, write a WAV. */
+/* phx-render: load a kit, hit each of the 6 voices, write a WAV. */
 #include <stdio.h>
 #include <stdlib.h>
 #include "engine.h"
@@ -15,7 +15,7 @@ static void wav_header(FILE *f, uint32_t frames)
 
 int main(int argc, char **argv)
 {
-	if (argc < 3) { fprintf(stderr, "usage: lxr-render KIT.SND out.wav\n"); return 2; }
+	if (argc < 3) { fprintf(stderr, "usage: phx-render KIT.SND out.wav\n"); return 2; }
 	lxr_init();
 	char name[9];
 	uint8_t params[LXR_KIT_PARAMS + LXR_MOD_BYTES];

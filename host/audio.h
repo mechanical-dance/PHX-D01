@@ -1,4 +1,4 @@
-/* lxa: the audition runtime shared by lxr-play and the app. Loads the engine plugins, plays through CoreAudio,
+/* lxa: the audition runtime shared by phx-play and the app. Loads the engine plugins, plays through CoreAudio,
    runs the step sequencer in the audio thread and sends/receives MIDI. Commands may come from any non-audio
    thread (UI, MIDI); they reach the audio thread through a ring. */
 #pragma once

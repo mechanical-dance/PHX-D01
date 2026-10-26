@@ -9,7 +9,7 @@ ENGINE := $(shell cd $(VENDOR)/Core/Src 2>/dev/null && ls Soundengine/DSPAudio/*
 LXR2_OBJS := $(patsubst %.c,$(B)/obj/%.o,$(ENGINE)) $(B)/obj/host/engine.o $(B)/obj/host/stubs.o $(B)/obj/menu/Cc2Text.o $(B)/obj/host/kit.o
 CFLAGS := -std=gnu11 -O2 -w -fvisibility=hidden '-Dsection(x)=unused' -Ishim -I$(INC) -I$(INC)/Soundengine -I$(SRC) -Ihost
 
-all: $(B)/lxr-render $(B)/lxr-play $(B)/PHX-D01.app
+all: $(B)/phx-render $(B)/phx-play $(B)/PHX-D01.app
 
 $(B)/.patched: $(wildcard patches/*.patch)
 	rm -rf $(B)/src && mkdir -p $(B)/src && cp -R $(VENDOR)/Core $(B)/src/
@@ -22,14 +22,14 @@ $(B)/obj/%.o: $(VENDOR)/Core/Src/%.c $(B)/.patched
 $(B)/obj/host/%.o: host/%.c host/engine.h host/audio.h host/midi.h host/module_targets.h $(B)/.patched
 	@mkdir -p $(dir $@); $(CC) $(CFLAGS) -c $< -o $@
 
-$(B)/lxr-render: $(LXR2_OBJS) $(B)/obj/host/render.o
+$(B)/phx-render: $(LXR2_OBJS) $(B)/obj/host/render.o
 	$(CC) $^ -o $@ -lm
 
 # Each engine is a plugin that exports only the lxr_* API, so engines with clashing symbols can coexist.
 $(B)/engine-lxr2.dylib: $(LXR2_OBJS)
 	$(CC) -dynamiclib $^ -o $@ -lm
 
-$(B)/lxr-play: $(B)/obj/host/play.o $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o
+$(B)/phx-play: $(B)/obj/host/play.o $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o
 	$(CC) $^ -o $@ -framework AudioToolbox -framework CoreAudio -framework CoreMIDI -framework CoreFoundation
 
 # --- LXR-1 engine: Sonic Potions 0.37 via LXR02Open (non-commercial licence; personal use) ---
@@ -71,7 +71,7 @@ app: $(APP)
 $(APP): app/AppIcon.icns $(wildcard app/*.swift) app/bridge.h host/audio.h host/midi.h app/Info.plist $(wildcard app/web/*) factory/INIT.SND $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o $(ENGINES)
 	rm -rf $@ && mkdir -p $@/Contents/MacOS $@/Contents/Resources
 	swiftc -O -import-objc-header app/bridge.h app/*.swift $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o \
-		-framework AudioToolbox -framework CoreAudio -framework CoreMIDI -framework WebKit -o $@/Contents/MacOS/lxr-audition
+		-framework AudioToolbox -framework CoreAudio -framework CoreMIDI -framework WebKit -o $@/Contents/MacOS/PHX-D01
 	cp $(ENGINES) $@/Contents/MacOS/
 	cp -R app/web $@/Contents/Resources/
 	cp app/AppIcon.icns $@/Contents/Resources/
