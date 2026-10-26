@@ -81,11 +81,14 @@ function editRows() {
   const slots = rowSlots(), voice = TRIGGERS[state.voice];
   const names = slots.map((s, i) => !s ? '' : i === state.knobFocus && Date.now() < state.paramUntil ? s[0].toUpperCase() : s[0]);
   const vals = slots.map(s => (s ? showValue(state.params[s[2]] ?? 0, s[3]) : ''));
-  const two = state.page === MATRIX_PAGE ? ' ' + 'abc'[state.sub]
-    : pageSlots(state.voice, state.page).slice(4).some(Boolean) ? (state.sub ? ' 2/2' : ' 1/2') : '';
+  // which page of the menu: > first, * middle, < last (module manual 4.2); none for a one-page menu
+  const pages = state.page === MATRIX_PAGE ? 3 : pageSlots(state.voice, state.page).slice(4).some(Boolean) ? 2 : 1;
+  const mark = pages === 1 ? ' ' : state.sub === 0 ? '>' : state.sub === pages - 1 ? '<' : '*';
   const what = state.page === MATRIX_PAGE ? `${voice} MOD` : state.page === FX_PAGE ? 'FX ' + (LXR_PAGES.menus[18]?.[state.params[FX_TYPE] ?? 0] ?? '')
     : state.page === LFO_PAGE ? `LFO${Math.min(state.voice, 5) + 1} ${voice}` : `${voice} ${PAGE_NAMES[state.page]}`;
-  const head = pad(what + two, 16);
+  const head = pad(what, 15) + mark;
+  const f = slots[state.knobFocus];
+  if (state.detail && f) return [pad(f[1], 16), pad(showValue(state.params[f[2]] ?? 0, f[3]), 16)];
   return Date.now() < state.paramUntil
     ? [names.map(n => pad(n, 4)).join(''), vals.map(v => pad(v, 4)).join('')]
     : [head, names.map(n => pad(n, 4)).join('')];
@@ -110,11 +113,26 @@ function editKnob(k, d) {
   if (typeof drawSide === 'function') drawSide();
 }
 
-function setMode(m) { state.mode = m; state.paramUntil = 0; refresh(); }
+function setMode(m) { state.mode = m; state.paramUntil = 0; state.detail = false; state.confirmClear = false; refresh(); }
+// Encoder in edit mode (module manual 4.2): turning picks one of the 4 parameters (in capitals), a push opens its
+// detail page (full name, value turned with the encoder), another push closes it.
+function encoderEdit(d) {
+  if (state.detail) { editKnob(state.knobFocus, d); state.paramUntil = 0; refresh(); return; }
+  const live = rowSlots().map((s, i) => (s ? i : -1)).filter(i => i >= 0);
+  if (!live.length) return;
+  const at = Math.max(0, live.indexOf(state.knobFocus));
+  state.knobFocus = live[((at + d) % live.length + live.length) % live.length];
+  state.paramUntil = Date.now() + 4000;
+  refresh(); clearTimeout(encoderEdit.t); encoderEdit.t = setTimeout(refresh, 4100);
+}
+function encoderEditPush() {
+  if (!state.detail && !rowSlots()[state.knobFocus]) return;
+  state.detail = !state.detail; state.paramUntil = 0; refresh();
+}
 function selectPage(p) {
   if (state.mode === 'edit' && state.page === p && pageSlots(state.voice, p).slice(4).some(Boolean)) state.sub ^= 1;
   else { state.page = p; state.sub = 0; }
-  state.mode = 'edit'; state.paramUntil = 0;
+  state.mode = 'edit'; state.paramUntil = 0; state.detail = false;
   refresh();
 }
 function toggleShift() { state.shift = !state.shift; refresh(); }
@@ -127,7 +145,7 @@ function modPress(e) {
   if (lfo) { selectPage(LFO_PAGE); return; }
   if (state.mode === 'edit' && state.page === MATRIX_PAGE) state.sub = (state.sub + 1) % 3;
   else { state.page = MATRIX_PAGE; state.sub = 0; }
-  state.mode = 'edit'; state.paramUntil = 0;
+  state.mode = 'edit'; state.paramUntil = 0; state.detail = false;
   refresh();
 }
 function fxPress() { state.shift = false; selectPage(FX_PAGE); }
@@ -155,9 +173,6 @@ function modulePress(i, e) {
   if (state.mode === 'edit') { selectPage(MODULE_PAGES[i]); return; }
   if (state.shift || e?.altKey) { toggleMute(i); return; }
   hit(i, e?.shiftKey);
-}
-function perfRows() {
-  return ['Perf: mutes', TRIGGERS.map((_, t) => (state.mutes[t] ? '-' : String(t + 1))).join(' ')];
 }
 
 function markButtons() {

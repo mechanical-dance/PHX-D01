@@ -125,6 +125,12 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             kits[kit].edited = true
             applyKit()
         case "mute": lxa_mute(int("t"), int("on"))
+        case "reloadKit": reloadKit()
+        case "clearKit":
+            guard !kits.isEmpty else { break }
+            kits[kit].params = initParams
+            kits[kit].edited = true
+            applyKit(); sendState()
         default: break
         }
     }
@@ -218,6 +224,18 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         if !folders.contains(where: { $0.path == url.path }) { folders.append(url) }
         reloadBanks()
         select(kits.firstIndex { $0.dir.path == url.path } ?? 0)
+    }
+
+    // SHIFT + RELOAD: the kit as saved (its file, or INIT for an empty slot), dropping unsaved edits.
+    func reloadKit() {
+        guard !kits.isEmpty else { return }
+        let k = kits[kit]
+        var p = [UInt8](repeating: 0, count: kitBytes), n = [CChar](repeating: 0, count: 9)
+        if k.virtual { p = initParams } else if lxr_read_kit(k.dir.appendingPathComponent(k.file).path, &p, &n) != 0 { return }
+        kits[kit].params = p
+        kits[kit].edited = false
+        applyKit(); sendState()
+        js("lxrToast", ["text": "Reloaded \(k.file)"])
     }
 
     func select(_ i: Int) {

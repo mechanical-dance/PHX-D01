@@ -236,8 +236,21 @@ function setHw(h) {
   if (typeof sendPattern === 'function') sendPattern();
 }
 function openFolder() { post({ cmd: 'open' }); }
+// Desktop SHIFT + COPY = CLEAR, then COPY again: the kit back to INIT (unsaved), as "Clear [kit]?" on the hardware.
+function copyPress(e) {
+  if (state.confirmClear) { state.confirmClear = false; post({ cmd: 'clearKit' }); refresh(); return; }
+  if (state.shift || e?.shiftKey) { state.shift = false; state.confirmClear = true; refresh(); }
+}
 // Encoder push: in SAVE mode the save dialog, otherwise the load dialog (the hardware's menus, minus knob naming).
-function encoderPush() { if (state.mode === 'save') phx.saveAs({ morphed: false }); else phx.load(); }
+function encoderPush() {
+  if (state.mode === 'edit') encoderEditPush();
+  else if (state.mode === 'save') phx.saveAs({ morphed: false });
+  else phx.load();
+}
+function encoderTurn(d) {
+  if (state.mode === 'edit') encoderEdit(d);
+  else if (state.mode !== 'perf') setKit(state.kit + d);
+}
 
 // The 4 knobs edit what the display shows, like the hardware's menu pages.
 const KNOBS = [
@@ -247,9 +260,34 @@ const KNOBS = [
     step: d => { if (state.hw === DESKTOP) state.vel = Math.min(127, Math.max(1, state.vel + d * 4)); else { state.base = Math.min(127, Math.max(1, state.base + d * 4)); if (typeof sendPattern === 'function') sendPattern(); } } },
   { name: 'out', step: d => setSolo(state.solo + d) },
 ];
+// Performance page (module manual 5.2; desktop 7.3 without the roll rate): morph amount, morph target, the global
+// sample rate (kit param 114, PAR_VOICE_DECIMATION_ALL); the desktop's also has tempo and shuffle.
+const SR_ALL = 114;
+const morphEl = () => document.getElementById('morph'), mtgEl = () => document.getElementById('mtg');
+const PERF = {
+  mrp: { step: d => { morphEl().value = Math.min(255, Math.max(0, +morphEl().value + d * 2)); sendMorph(); }, show: () => String(Math.round(morphEl().value / 2)) },
+  mtg: { step: d => { mtgEl().value = Math.min(state.kits.length - 1, Math.max(0, (+mtgEl().value || 0) + d)); sendMorph(); }, show: () => slotLabel(+mtgEl().value || 0) },
+  sr: { step: d => {
+      if (!state.params.length) return;
+      const v = Math.min(127, Math.max(0, (state.params[SR_ALL] ?? 127) + d));
+      state.params[SR_ALL] = v; if (state.kits[state.kit]) state.kits[state.kit].edited = true;
+      post({ cmd: 'param', i: SR_ALL, v });
+    }, show: () => String(state.params[SR_ALL] ?? '') },
+  bpm: { step: d => { seq.bpm = Math.min(300, Math.max(20, seq.bpm + d)); sendTempo(); drawSeq(); }, show: () => String(seq.bpm) },
+  shu: { step: d => { seq.swing = Math.min(0.6, Math.max(0, Math.round((seq.swing + d * 0.01) * 100) / 100)); sendTempo(); drawSeq(); }, show: () => String(Math.round(seq.swing * 100)) },
+};
+const perfKnobs = () => (state.hw === MODULE ? ['mrp', 'mtg', 'sr', ''] : ['bpm', 'mrp', 'sr', 'shu']);
+function perfRows() {
+  const names = perfKnobs().map((n, i) => (n && i === state.knobFocus && Date.now() < state.paramUntil ? n.toUpperCase() : n));
+  return Date.now() < state.paramUntil
+    ? [names.map(n => pad(n, 4)).join(''), perfKnobs().map(n => pad(n ? PERF[n].show() : '', 4)).join('')]
+    : ['Perform', names.map(n => pad(n, 4)).join('')];
+}
 function turnKnob(k, d) {
   state.knobFocus = k; state.paramUntil = Date.now() + 2500;
-  if (state.mode === 'edit') editKnob(k, d); else KNOBS[k].step(d);
+  if (state.mode === 'edit') editKnob(k, d);
+  else if (state.mode === 'perf') { const n = perfKnobs()[k]; if (n) PERF[n].step(d); }
+  else KNOBS[k].step(d);
   refresh(); setTimeout(refresh, 2600);
 }
 
@@ -257,6 +295,7 @@ function turnKnob(k, d) {
 const pad = (s, n) => String(s).slice(0, n).padEnd(n);
 const OUT_NAMES = [['mix', 'mnL', 'mnR', 'o2L', 'o2R'], ['mix', 'o1', 'o2', 'o3', 'o4']];
 function displayRows() {
+  if (state.confirmClear) return ['Clear kit?', 'COPY again = yes'];
   if (state.mode === 'edit') return editRows();
   if (state.mode === 'perf') return perfRows();
   const k = state.kits[state.kit];
@@ -358,7 +397,7 @@ function buildDesktop(svg) {
   label(g, 240, 128, 'PHX-D01', 'logo'); label(g, 240, 162, 'KIT AUDITIONER', 'logo sub');
   display(g, 88, 182, 304, 86, 'lcd');
   [115, 195, 275, 355].forEach((x, k) => knob(g, x, 330, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': drag or scroll; double-click resets', k));
-  encoder(g, 505, 205, 50, d => setKit(state.kit + d), encoderPush);
+  encoder(g, 505, 205, 50, encoderTurn, encoderPush);
   label(g, 505, 282, 'DATA', 'lbl');
 
   // faders: six voices and master volume
@@ -382,16 +421,17 @@ function buildDesktop(svg) {
 
   // menu rows
   const row = (items, y) => items.map(([t, x, fn, title]) => { const b = button(g, x, y, 10, fn, { title }); label(g, x, y + 24, t, 'lbl small'); return b; });
-  [ui.shift] = row([['SHIFT', 75, toggleShift, 'Latch SHIFT: voice buttons then mute/unmute'], ['PLAY', 135, () => window.seqToggle?.(), 'Play/stop the sequencer'], ['REC', 180], ['COPY', 232]], 420);
+  [ui.shift] = row([['SHIFT', 75, toggleShift, 'Latch SHIFT: voice buttons then mute/unmute'], ['PLAY', 135, () => window.seqToggle?.(), 'Play/stop the sequencer'], ['REC', 180], ['COPY', 232, copyPress, 'SHIFT + COPY = CLEAR: clear the kit to INIT (press COPY again to confirm)']], 420);
   [ui.edit, ui.perf] = row([['VOICE', 300, () => setMode('edit'), 'Edit the selected voice'], ['PERF', 355, () => setMode('perf'), 'Performance: voice buttons mute/unmute'], ['LOAD', 410, () => state.mode !== 'load' ? setMode('load') : openFolder(), 'LOAD mode: turn the encoder to browse, push it for the load dialog; LOAD again opens a kit folder'], ['SAVE', 465, () => (state.mode === 'save' ? phx.save() : setMode('save')), 'SAVE mode: push the encoder for the save dialog; SAVE again saves the kit and the project (⌘S)']], 420);
   ui.pages = row(PAGE_NAMES.slice(0, 8).map((t, i) => [t, 560 + i * 55, () => selectPage(i), `${t} page of the selected voice; again for its second row`]), 420);
   // the 16 step buttons; the first seven are the voices
   ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CLP/CYM', 'CL HH', 'OP HH', 'KIT', 'MORPH', 'SONG', 'PROJECT', 'CONFIG', 'RELOAD', 'LAST STEP', 'FX', 'PATTERN']
     .forEach((t, i) => {
       const x = 72 + i * 57.2;
-      const fx = i === 14 ? e => { if (state.shift || e?.shiftKey) fxPress(); } : null;
+      const fx = i === 14 ? e => { if (state.shift || e?.shiftKey) fxPress(); }
+        : i === 12 ? e => { if (state.shift || e?.shiftKey) { state.shift = false; post({ cmd: 'reloadKit' }); } } : null;
       const b = button(g, x, 498, 22, i < 7 ? e => voicePress(i, e) : fx,
-        { square: true, title: i < 7 ? `${t}: play and select · SHIFT (or ⌥) mutes` : i === 14 ? "SHIFT + FX: the kit's effect" : undefined });
+        { square: true, title: i < 7 ? `${t}: play and select · SHIFT (or ⌥) mutes` : i === 14 ? "SHIFT + FX: the kit's effect" : i === 12 ? 'SHIFT + RELOAD: back to the saved kit' : undefined });
       if (i < 7) ui.trig[i].push(b);
       label(g, x, 536, t, 'lbl small');
     });
@@ -442,7 +482,7 @@ function buildModule(svg) {
 
   // mode buttons
   const mode = (t, x, y, fn, title) => { label(g, x, y - 20, t, 'lbl small'); return button(g, x, y, 12, fn, { title }); };
-  ui.edit = mode('EDIT', 66, 222, () => setMode('edit'), 'Edit voices: select buttons pick the page'); ui.perf = mode('PERFORM', 120, 222, () => setMode('load'), 'Perform: select buttons play the voices');
+  ui.edit = mode('EDIT', 66, 222, () => setMode('edit'), 'Edit voices: select buttons pick the page'); ui.perf = mode('PERFORM', 120, 222, () => setMode('perf'), 'Perform: select buttons play the voices; knobs: morph amount, morph target, global sample rate');
   ui.mod = mode('MOD', 66, 278, modPress, 'MOD: the voice\'s mod matrix (again: next slot a/b/c) · SHIFT + MOD (or shift-click): its LFO'); ui.fx = mode('FX', 120, 278, fxPress, "FX: the kit's effect");
   ui.shift = mode('SHIFT', 66, 334, toggleShift, 'Latch SHIFT: select buttons then mute (perform mode)'); mode('SAVE/LOAD', 120, 334, e => { const s = state.shift || e?.shiftKey; state.shift = false; setMode(s ? 'save' : 'load'); },
     'SAVE/LOAD: load mode (turn the encoder to browse, push for the load dialog) · SHIFT + SAVE/LOAD: save mode (push for the save dialog)');
@@ -451,7 +491,7 @@ function buildModule(svg) {
 
   display(g, 180, 238, 290, 76, 'seg');
   label(g, 560, 210, 'DATA', 'lbl small');
-  encoder(g, 560, 272, 40, d => setKit(state.kit + d), encoderPush);
+  encoder(g, 560, 272, 40, encoderTurn, encoderPush);
   [205, 300, 395, 490].forEach((x, k) => knob(g, x, 395, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': drag or scroll; double-click resets', k));
 
   // DRUM + select buttons; in perform mode the select buttons fire the voices
