@@ -1,7 +1,7 @@
 # Install
 
 ## Requirements
-- macOS on Apple Silicon, with Xcode command-line tools (`xcode-select --install`).
+- macOS on Apple Silicon, with Xcode command-line tools (`xcode-select --install`). Other platforms are not supported.
 - **Erica Synths LXR-02 firmware** (required): compiled into the sound engine.
   ```sh
   git clone https://github.com/erica-synths/lxr-desktop-app ~/code/vendor/lxr-02/lxr-desktop-app
