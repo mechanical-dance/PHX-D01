@@ -37,8 +37,13 @@ n2, n1 = p2["END_OF_SOUND_PARAMETERS"], p1["END_OF_SOUND_PARAMETERS"]
 by_index2 = {}
 for name, v in p2.items():
     if v < n2:
-        by_index2.setdefault(v, name)   # first name wins (aliases like PAR_OSC_WAVE_DRUM1 = PAR_MOD_WHEEL)
-param_map = [p1.get(by_index2.get(i, ""), -1) for i in range(n2)]
+        by_index2.setdefault(v, []).append(name)
+# Aliases can disagree between the trees: on the LXR-2 PAR_OSC_WAVE_DRUM1 = PAR_MOD_WHEEL = 1, on the LXR-1
+# PAR_MOD_WHEEL = PAR_NONE = 0 and PAR_OSC_WAVE_DRUM1 = 1. Prefer a name that is a real LXR-1 parameter (not 0).
+def lxr1_index(i):
+    found = [p1[n] for n in by_index2.get(i, []) if n in p1]
+    return next((x for x in found if x != 0), found[0] if found else -1)
+param_map = [lxr1_index(i) for i in range(n2)]
 param_map = [x if 0 <= x < n1 else -1 for x in param_map]
 mt_map = [p1.get(name, 0) if p1.get(name, n1) < n1 else 0 for name in mt2]
 
@@ -49,5 +54,5 @@ with open(out, "w") as f:
     f.write("static const int16_t lxr2_to_lxr1_param[LXR2_NUM_PARAMS] = {" + ",".join(map(str, param_map)) + "};\n")
     f.write("/* LXR-2 modTargets index -> LXR-1 parameter number (0 = none) */\n")
     f.write("static const uint8_t lxr2_modtarget_to_lxr1_param[LXR2_NUM_MODTARGETS] = {" + ",".join(map(str, mt_map)) + "};\n")
-missing = [by_index2.get(i, "?") for i, x in enumerate(param_map) if x < 0]
+missing = [by_index2.get(i, ["?"])[0] for i, x in enumerate(param_map) if x < 0]
 print(f"{out}: {n2 - len(missing)}/{n2} params mapped, {len(mt2)} mod targets; LXR-2 only: {', '.join(missing)}")
