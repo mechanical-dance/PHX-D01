@@ -14,13 +14,16 @@ Object.assign(state, { mode: 'load', voice: 0, page: 0, sub: 0, shift: false, dr
 // Stored after the 247 kit params: 18 targets, 18 amounts, 18 sources, slot = voice * 3 + a/b/c. A target is an index
 // into MODULE_TARGETS (modtargets.js, from the module firmware), whose voice blocks run v/o ... mrp (morph).
 const MATRIX = KIT_PARAMS, SRC_KIND = 100, DST_KIND = 101;
-// Oscillator waveforms on the LXR-1 engine: kit values 0-5 as on the LXR-2 (5, PWM, plays as Rec), 6 the crash, 7 + i
-// sample i (host/engine1.c), up to the samples loaded (LXR02Open menu.c, MENU_WAVEFORM). The kit indexes are engine1.c's waves[].
+// Oscillator waveforms on the LXR-1 engine. The knob steps through LXR02Open's menu (menu.c, MENU_WAVEFORM): Sin Tri Saw
+// Rec Noi Cym, then the samples loaded. Kits keep LXR-2 values (host/engine1.c): 0-4 the same, 5 PWM (plays as Rec, not
+// in the menu), 6 Cym, 7 + i sample i. The kit indexes are engine1.c's waves[].
 const WAVE_KIND = 102, SAMPLE_WAVES = new Set([1, 2, 3, 4, 6, 7, 20, 21, 22, 23, 24, 25, 26]);
 const sampleEngine = () => !!state.sampleEngines?.[state.engine];
 // menu_formatSampleShortName: s01-s99, then sA0, sA1...
 const sampleShort = i => i + 1 <= 99 ? 's' + String(i + 1).padStart(2, '0') : 's' + String.fromCharCode(65 + Math.floor((i - 99) / 10)) + ((i - 99) % 10);
-const waveName = v => v < 6 ? LXR_PAGES.menus[2][v] : v === 6 ? 'Cym' : sampleShort(v - 7);
+const waveName = v => v < 5 ? LXR_PAGES.menus[2][v] : v === 5 ? 'Rec' : v === 6 ? 'Cym' : sampleShort(v - 7);   // a kit value
+const wavePos = v => v < 5 ? v : v === 5 ? 3 : v - 1;   // kit value -> menu position
+const waveKit = p => p < 5 ? p : p + 1;                 // menu position -> kit value
 const SOURCES = ['cv1', 'cv2', 'cv3', 'cv4', 'cv5', 'lf1', 'lf2', 'lf3', 'lf4', 'lf5', 'lf6', 'ac1', 'ac2', 'ac3', 'ac4', 'ac5', 'ac6'];
 const TARGET_BLOCKS = (() => {   // per voice: [0 (off), its target indexes]
   const blocks = [];
@@ -69,7 +72,7 @@ function range(t) {
   if (kind === 9) return [1, 6];
   if (kind === 15) return [0, 100];
   if (t === SRC_KIND) return [0, SOURCES.length - 1];
-  if (t === WAVE_KIND) return [0, 6 + (state.samples || []).length];
+  if (t === WAVE_KIND) return [0, 5 + (state.samples || []).length];   // menu positions
   if (t === DST_KIND) return [0, (TARGET_BLOCKS[Math.min(state.voice, 5)]?.length || 1) - 1];   // a position in the voice's list
   if (kind === 0) return [0, 255];
   return [0, 127];
@@ -111,6 +114,7 @@ function editRows() {
 // A slot's knob value; a mod destination is edited as its position in the voice's target list.
 function slotValue(s) {
   const v = state.params[s[2]] ?? 0;
+  if (s[3] === WAVE_KIND) return wavePos(v);
   return s[3] === DST_KIND ? Math.max(0, (TARGET_BLOCKS[Math.min(state.voice, 5)] || [0]).indexOf(v)) : v;
 }
 function editKnob(k, d) {
@@ -118,7 +122,7 @@ function editKnob(k, d) {
   if (!s || !state.params.length) return;
   const [lo, hi] = range(s[3]);
   const pos = Math.min(hi, Math.max(lo, slotValue(s) + d));
-  const v = s[3] === DST_KIND ? TARGET_BLOCKS[Math.min(state.voice, 5)][pos] : pos;
+  const v = s[3] === DST_KIND ? TARGET_BLOCKS[Math.min(state.voice, 5)][pos] : s[3] === WAVE_KIND ? waveKit(pos) : pos;
   if (v === state.params[s[2]]) return;
   state.params[s[2]] = v;
   const kit = state.kits[state.kit];
@@ -224,5 +228,6 @@ function knobSet(k, v) {
 }
 function knobReset(k) {
   const s = rowSlots()[k];
-  if (s && state.savedParams) knobSet(k, s[3] === DST_KIND ? Math.max(0, TARGET_BLOCKS[Math.min(state.voice, 5)].indexOf(state.savedParams[s[2]])) : state.savedParams[s[2]]);
+  if (s && state.savedParams) knobSet(k, s[3] === DST_KIND ? Math.max(0, TARGET_BLOCKS[Math.min(state.voice, 5)].indexOf(state.savedParams[s[2]]))
+    : s[3] === WAVE_KIND ? wavePos(state.savedParams[s[2]]) : state.savedParams[s[2]]);
 }

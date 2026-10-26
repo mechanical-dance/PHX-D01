@@ -181,11 +181,12 @@ function drawSide() {
 
   const waves = h('div', { className: 'waves' });
   VOICES.forEach((v, i) => {
-    // the waveform menu as the engine has it (edit.js waveName); a value past it is shown as it is
-    const n = sampleEngine() ? 7 + samples.length : 6;
-    const opts = Array.from({ length: n }, (_, j) => [j, j >= 7 ? `${waveName(j)} ${samples[j - 7].name}` : waveName(j)]);
+    // the waveform menu as the engine has it (LXR-1: edit.js waveKit/waveName); values are kit values
     const cur = state.waves?.[i] ?? 0;
-    if (cur >= n) opts.push([cur, `${cur >= 7 ? waveName(cur) : cur} (not in this engine's menu)`]);
+    const opts = sampleEngine()
+      ? Array.from({ length: 6 + samples.length }, (_, p) => waveKit(p)).map(v => [v, v >= 7 ? `${waveName(v)} ${samples[v - 7].name}` : waveName(v)])
+      : LXR_PAGES.menus[2].map((w, v) => [v, w]);
+    if (!opts.some(([v]) => v === cur)) opts.push([cur, sampleEngine() ? waveName(cur) : `${cur} (not in this engine's menu)`]);
     waves.append(h('label', {}, v), select(opts, cur, val => post({ cmd: 'wave', voice: i, value: val }), v + ' oscillator waveform'));
   });
 
