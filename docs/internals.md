@@ -21,7 +21,7 @@ the current kit loaded in every engine, so switching is instant.
 
 | Plugin | Source | Notes |
 |---|---|---|
-| `engine-lxr2.dylib` | Erica `lxr-desktop-app` v1.7 (GPL-3.0) | the LXR-02 engine; kits load natively |
+| `engine-lxr2.dylib` | Erica Synths `lxr-desktop-app` v1.7 (GPL-3.0) | the LXR-02 engine; kits load natively |
 | `engine-lxr1.dylib` | Sonic Potions 0.37 via LXR02Open (non-commercial) | built only if LXR02Open is cloned; kits translated by parameter name (220 of 247) |
 
 The LXR-1 translation drops the 27 LXR-2-only parameters (FX bus, PWM, morph). Voices routed to the FX bus play dry

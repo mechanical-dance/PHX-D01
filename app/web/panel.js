@@ -525,7 +525,7 @@ function initToolbar() {
   state.engines.forEach((n, i) => {
     const b = document.createElement('button');
     b.dataset.v = i;
-    b.textContent = n === 'LXR-2' ? 'LXR-2 engine (Erica fw)' : n === 'LXR-1' ? 'LXR-1 engine (open fw)' : n;
+    b.textContent = n === 'LXR-2' ? 'LXR-2 engine (Erica Synths fw)' : n === 'LXR-1' ? 'LXR-1 engine (open fw)' : n;
     b.addEventListener('click', () => setEngine(i));
     eng.appendChild(b);
   });

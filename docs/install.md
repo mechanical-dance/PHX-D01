@@ -2,7 +2,7 @@
 
 ## Prerequisites
 - macOS on Apple Silicon, with the Xcode command-line tools (`xcode-select --install`), which provide `clang`, `swiftc` and `make`.
-- **Erica's firmware** (required). The build compiles it; it isn't part of this repo.
+- **The Erica Synths LXR-02 firmware** (required). The build compiles it; it isn't part of this repo.
   ```sh
   git clone https://github.com/erica-synths/lxr-desktop-app ~/code/vendor/lxr-02/lxr-desktop-app
   ```
@@ -22,7 +22,7 @@ The build copies the firmware to `build/src` and applies `patches/`. It never mo
 
 ## Kits
 The app comes with only an INIT kit. Bring your own:
-- **Erica's factory kits.** On the [LXR-02 page](https://www.ericasynths.lv/shop/drum-machines/drum-synthesizer-lxr-02),
+- **The Erica Synths factory kits.** On the [LXR-02 page](https://www.ericasynths.lv/shop/drum-machines/drum-synthesizer-lxr-02),
   under Downloads, get *Factory SD content* and *Sound Pack 1 (Hrtl DLC)*. Unzip either and open its folder
   as a bank (File ▸ Open Kit Folder…), or put the factory kits in `~/Documents/PHX-D01/Banks/Erica-factory` so they always show as a bank.
 - **Your own card.** Copy your LXR-02 or LXR-Drum SD card to the Mac and open it as a project (File ▸ Open Project…).

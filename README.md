@@ -2,9 +2,9 @@
 
 Audition LXR kits (`.SND`) on the Mac with the LXR's own sound engine, compiled natively. No SD-card swapping.
 
-- **The real engine.** Erica Synths' open-source LXR-02 firmware, built for macOS. An optional second engine plays
+- **The real engine.** The open-source Erica Synths LXR-02 firmware, built for macOS. An optional second engine plays
   the original Sonic Potions LXR (from Brendan Clarke's LXR02Open).
-- **Two front panels.** The LXR-02 desktop and the LXR-Drum Eurorack module, with the hardware's menu pages,
+- **Two panels, two models** The LXR-02 desktop and the LXR-Drum Eurorack module, with the hardware's menu pages,
   knobs, encoder and buttons.
 - **Module mod matrix.** The module's 18 matrix slots load from its kit files. CV and accent jacks are playable sources,
   including v/o at 1 V/oct.
@@ -21,13 +21,13 @@ Audition LXR kits (`.SND`) on the Mac with the LXR's own sound engine, compiled 
 PHX-D01 contains no LXR code or sounds of its own. The engine and the kits come from their authors, and you download
 them yourself:
 
-- **Erica Synths' LXR-02 firmware** ([lxr-desktop-app](https://github.com/erica-synths/lxr-desktop-app), required).
+- **The Erica Synths LXR-02 firmware** ([lxr-desktop-app](https://github.com/erica-synths/lxr-desktop-app), required).
   This is the source code that runs inside the LXR-02. The build compiles it for the Mac, so what you hear is the
   machine's own sound engine, not an imitation.
 - **Brendan Clarke's LXR02Open** ([LXR02Open](https://github.com/brendanclarke/LXR02Open), optional).
   An open port of the original Sonic Potions LXR firmware. It adds a second engine, so you can hear how a kit sounds
-  on the first-generation LXR. Its licence forbids commercial use, so it isn't included here.
-- **Kits** (optional; the app starts with a single INIT kit). Erica's factory kits are on the
+  on the ported first-generation LXR to LXR-2 hardware.
+- **Kits** (optional; the app starts with a single INIT kit). The Erica Synths factory kits are on the
   [LXR-02 page](https://www.ericasynths.lv/shop/drum-machines/drum-synthesizer-lxr-02) under Downloads:
   *Factory SD content* is the kits the machine ships with, and *Sound Pack 1 (Hrtl DLC)* is a kit pack by Leoš Hort.
   You can also open a copy of your own SD card.
@@ -56,12 +56,10 @@ Then open a kit folder (File ▸ Open Kit Folder…) or a card (File ▸ Open Pr
 - **Leoš Hort**: the Hrtl kit pack.
 
 ## Licence
-GPL-3.0-only (see `LICENSE`). Erica Synths' firmware terms ([NOTICE](https://github.com/erica-synths/lxr-desktop-app/blob/main/NOTICE.md))
+GPL-3.0-only (see `LICENSE`). The Erica Synths firmware terms ([NOTICE](https://github.com/erica-synths/lxr-desktop-app/blob/main/NOTICE.md))
 apply to their code.
 
-PHX-D01 is an independent project and is not affiliated with, endorsed by, or supported by Erica Synths or
-Sonic Potions. Erica Synths, LXR and LXR-02 are trademarks of Erica Synths. They are used here for identification
-only.
+PHX-D01 is an independent project and is not affiliated with, endorsed by Erica Synths or
+Sonic Potions. Erica Synths, LXR and LXR-02 are trademarks of Erica Synths.
 
 The LXR-1 engine is built from your own clone of LXR02Open, under that project's non-commercial licence.
-Don't share builds that include `engine-lxr1.dylib`.
