@@ -37,6 +37,19 @@ kit banks, settings), `app/web/` (panels, sequencer UI).
 Not yet: rename (Erica's notice reserves "LXR"/"LXR-02"/"Erica Synths" names and the panel design), add credits
 (Julian Schmidt / Sonic Potions, Erica Synths, Brendan Clarke / LXR02Open) and licences, and decide how to ship
 the LXR-1 engine (LXR02Open's non-commercial licence doesn't mix with GPL-3.0 in one program).
+Ask Erica Synths before redistributing `factory/Erica-factory` (their 63 factory kits, unmodified, from the LXR-02
+firmware download's `PROJ00`); the download carries no licence text.
+
+## Factory kits
+`factory/Erica-factory/*.SND` are Erica Synths' factory kits, © Erica Synths. The app always lists them as the first
+bank. (The download's 63 `.PAT` files are empty templates, so they aren't included.)
+
+## Editing and mutes
+As on the hardware: a voice button plays and selects a voice, OSC … MIX show that voice's page (press again for its
+second row), and the 4 knobs edit what the display shows; LOAD or PERF goes back to the kit display, SAVE saves the
+kit. SHIFT (latched) + a voice button mutes it, or ⌥1-7. Mutes silence the sequencer and MIDI in; clicking still plays.
+On the module: EDIT, then the select buttons pick pages; DRUM + a select button picks the voice; PERFORM plays.
+Pages come from the firmware's menu tables via `tools/gen_pages.sh`.
 
 ## How it works
 - Kit format (`.SND`, 255 bytes): 8-byte name, then 247 parameter bytes indexed by the firmware's

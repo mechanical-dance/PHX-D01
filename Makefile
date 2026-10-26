@@ -65,12 +65,13 @@ clean:
 APP := $(B)/PHX-D01.app
 app: $(APP)
 # app/icon.svg is the source; AppIcon.icns is built from it (render at 1024, sips, iconutil).
-$(APP): app/AppIcon.icns $(wildcard app/*.swift) app/bridge.h host/audio.h host/midi.h app/Info.plist $(wildcard app/web/*) $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib
+$(APP): app/AppIcon.icns $(wildcard app/*.swift) app/bridge.h host/audio.h host/midi.h app/Info.plist $(wildcard app/web/*) $(wildcard factory/Erica-factory/*) $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib
 	rm -rf $@ && mkdir -p $@/Contents/MacOS $@/Contents/Resources
 	swiftc -O -import-objc-header app/bridge.h app/*.swift $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o \
 		-framework AudioToolbox -framework CoreAudio -framework CoreMIDI -framework WebKit -o $@/Contents/MacOS/lxr-audition
 	cp $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib $@/Contents/MacOS/
 	cp -R app/web $@/Contents/Resources/
 	cp app/AppIcon.icns $@/Contents/Resources/
+	cp -R factory/Erica-factory $@/Contents/Resources/
 	cp app/Info.plist $@/Contents/
 	codesign --force --deep -s - $@

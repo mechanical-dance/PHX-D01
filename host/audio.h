@@ -22,7 +22,8 @@ void lxa_hardware(int hw);
 void lxa_hit(int trigger, int velocity);   /* trigger 0-6 (5 = closed hat, 6 = open hat), velocity 1-127 */
 void lxa_note(int trigger, int note, int velocity);   /* pitched hit, also sent as MIDI */
 void lxa_fader(int fader, float position); /* 0-5 voice faders, 6 master; position 0-1 as the fader sits */
-void lxa_solo(int jack);                   /* 0 = all jacks mixed to the speakers, 1-4 = that jack alone */
+void lxa_solo(int jack);
+void lxa_mute(int track, int on);         /* 0-6; a muted track still plays when hit by hand */                   /* 0 = all jacks mixed to the speakers, 1-4 = that jack alone */
 
 /* User samples (LXR02Open engine only): mono 16-bit 44.1 kHz, one buffer; sample i starts at offsets[i] and is
    sizes[i] frames long. Sample i is oscillator waveform 6+i on the LXR-1 engine. */

@@ -97,6 +97,13 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "saveBank": saveBank(d)
         case "importSamples": importSamples()
         case "clearSamples": clearSamples()
+        case "param":
+            let i = Int(int("i"))
+            guard !kits.isEmpty, i >= 0, i < Int(LXR_KIT_PARAMS) else { break }
+            kits[kit].params[i] = UInt8(clamping: int("v"))
+            kits[kit].edited = true
+            applyKit()
+        case "mute": lxa_mute(int("t"), int("on"))
         default: break
         }
     }
@@ -106,6 +113,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         let args = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
         var paths = UserDefaults.standard.stringArray(forKey: "kitFolders") ?? UserDefaults.standard.string(forKey: "kitFolder").map { [$0] } ?? []
         paths += args.map { ($0 as NSString).expandingTildeInPath }
+        // Erica's factory kits ship inside the app and are always the first bank.
+        if let factory = Bundle.main.resourceURL?.appendingPathComponent("Erica-factory") { folders.append(factory) }
         for path in paths where FileManager.default.fileExists(atPath: path) && !folders.contains(where: { $0.path == path }) {
             folders.append(URL(fileURLWithPath: path))
         }
@@ -135,7 +144,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
 
     func reloadBanks() {
         kits = folders.flatMap(App.readKits)
-        UserDefaults.standard.set(folders.map(\.path), forKey: "kitFolders")
+        UserDefaults.standard.set(folders.map(\.path).filter { !$0.hasPrefix(Bundle.main.bundlePath) }, forKey: "kitFolders")
     }
 
     // Opening a folder adds it as a bank (or jumps to it if it's already one).
@@ -181,6 +190,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         let s: [String: Any] = ["engines": engines, "kit": kit,
                                 "kits": kits.map { ["name": $0.name, "file": $0.file, "bank": $0.bank, "edited": $0.edited] },
                                 "waves": kits.isEmpty ? [] : waveParams.map { Int(kits[kit].params[$0]) },
+                                "params": kits.isEmpty ? [] : kits[kit].params.map(Int.init),
                                 "sampleEngines": (0..<lxa_engine_count()).map { lxa_engine_has_samples($0) != 0 },
                                 "samples": samples.map { ["name": $0.url.deletingPathExtension().lastPathComponent, "loop": $0.loop,
                                                           "sec": Double($0.pcm.count) / 44100] }]

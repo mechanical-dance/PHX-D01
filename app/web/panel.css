@@ -134,3 +134,8 @@ main { flex: 1; min-height: 260px; display: flex; align-items: center; justify-c
 #prefs .row { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 #prefs .row.end { flex-direction: row; justify-content: flex-end; margin-top: 14px; }
 #prefs label { color: var(--ink-dim); font-size: 12px; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+
+/* held states: page/mode/shift buttons lit, muted voices dim */
+.btn.on .cap { fill: #ffd36a; filter: url(#glow); }
+.btn.muted .cap { fill: #3a3a3a; opacity: .45; }
+.btn.muted.lit .cap { fill: #6a6a6a; }

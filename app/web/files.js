@@ -1,6 +1,6 @@
 // Right sidebar (kit, pattern, bank and sample files) and the Settings sheet. The native side runs the file panels.
 'use strict';
-const WAVES = ['Sine', 'Tri', 'Saw', 'Rec', 'Noise', 'PWM', 'Crash'];   // LXR-2 values 0-6; samples are 7 + n
+const WAVES = ['Sine', 'Tri', 'Saw', 'Rec', 'Noise', 'PWM', 'Crash (LXR-1)'];   // the LXR-2 has 0-5; on the LXR-1 engine 6 is its crash and 7 + n sample n
 const VOICES = ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CYM', 'HIHAT'];
 
 const patternName = i => seq.patterns[i].name || 'PAT-' + SLOTS[i];
@@ -47,7 +47,7 @@ function drawSide() {
 
   const waves = h('div', { className: 'waves' });
   VOICES.forEach((v, i) => {
-    const opts = WAVES.map((w, j) => [j, w]).concat(samples.map((s, j) => [7 + j, `s${String(j + 1).padStart(2, '0')} ${s.name}`]));
+    const opts = WAVES.map((w, j) => [j, w]).concat(samples.map((s, j) => [7 + j, `s${String(j + 1).padStart(2, '0')} ${s.name} (LXR-1)`]));
     const cur = state.waves?.[i] ?? 0;
     if (cur >= 7 + samples.length) opts.push([cur, `sample ${cur - 6} (not loaded)`]);
     waves.append(h('label', {}, v), select(opts, cur, val => post({ cmd: 'wave', voice: i, value: val }), v + ' oscillator waveform'));

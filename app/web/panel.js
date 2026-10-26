@@ -194,12 +194,17 @@ const KNOBS = [
     step: d => { if (state.hw === DESKTOP) state.vel = Math.min(127, Math.max(1, state.vel + d * 4)); else { state.base = Math.min(127, Math.max(1, state.base + d * 4)); if (typeof sendPattern === 'function') sendPattern(); } } },
   { name: 'out', step: d => setSolo(state.solo + d) },
 ];
-function turnKnob(k, d) { state.knobFocus = k; state.paramUntil = Date.now() + 2500; KNOBS[k].step(d); refresh(); setTimeout(refresh, 2600); }
+function turnKnob(k, d) {
+  state.knobFocus = k; state.paramUntil = Date.now() + 2500;
+  if (state.mode === 'edit') editKnob(k, d); else KNOBS[k].step(d);
+  refresh(); setTimeout(refresh, 2600);
+}
 
 // ---------- display ----------
 const pad = (s, n) => String(s).slice(0, n).padEnd(n);
 const OUT_NAMES = [['mix', 'mnL', 'mnR', 'o2L', 'o2R'], ['mix', 'o1', 'o2', 'o3', 'o4']];
 function displayRows() {
+  if (state.mode === 'edit') return editRows();
   const k = state.kits[state.kit];
   if (Date.now() < state.paramUntil) {
     const names = KNOBS.map((kn, i) => { const n = typeof kn.name === 'function' ? kn.name() : kn.name; return i === state.knobFocus ? n.toUpperCase() : n; });
@@ -237,6 +242,7 @@ function refresh() {
   if (mtg.value === '' && state.kits.length) mtg.value = 0;
   (ui.outs || []).forEach((n, j) => n.classList.toggle('patched', state.solo === j + 1));
   (ui.acc || []).forEach((n, j) => n.classList.toggle('patched', !!state.accent[j]));
+  markButtons();
   document.getElementById('hint').textContent = state.hw === DESKTOP
     ? '1–7 trigger · space play · [ ] velocity · ←/→ kit · e engine · o jack · m hardware'
     : '1–7 trigger · shift accent · click ACC to hold · space play · ←/→ kit · o jack · m hardware';
@@ -299,19 +305,19 @@ function buildDesktop(svg) {
   TRIGGERS.forEach((t, i) => {
     const x = 640 + i * 50;
     label(g, x, 330, t, 'lbl small');
-    ui.trig[i].push(button(g, x, 350, 10, () => hit(i), { title: `Trigger ${i + 1}: ${t}` }));
+    ui.trig[i].push(button(g, x, 350, 10, e => voicePress(i, e), { title: `${t}: play and select for editing · SHIFT (or ⌥) mutes` }));
   });
 
   // menu rows
-  const row = (items, y) => items.forEach(([t, x, fn, title]) => { button(g, x, y, 10, fn, { title }); label(g, x, y + 24, t, 'lbl small'); });
-  row([['SHIFT', 75], ['PLAY', 135], ['REC', 180], ['COPY', 232]], 420);
-  row([['VOICE', 300], ['PERF', 355], ['LOAD', 410, openFolder, 'Open a folder of .SND kits'], ['SAVE', 465]], 420);
-  row([['OSC', 560], ['AEG', 615], ['MOD', 670], ['FM', 725], ['CLICK', 780], ['FILTER', 835], ['LFO', 890], ['MIX', 945]], 420);
+  const row = (items, y) => items.map(([t, x, fn, title]) => { const b = button(g, x, y, 10, fn, { title }); label(g, x, y + 24, t, 'lbl small'); return b; });
+  [ui.shift] = row([['SHIFT', 75, toggleShift, 'Latch SHIFT: voice buttons then mute/unmute'], ['PLAY', 135, () => window.seqToggle?.(), 'Play/stop the sequencer'], ['REC', 180], ['COPY', 232]], 420);
+  [ui.edit, ui.perf] = row([['VOICE', 300, () => setMode('edit'), 'Edit the selected voice'], ['PERF', 355, () => setMode('load'), 'Back to the kit display'], ['LOAD', 410, () => state.mode === 'edit' ? setMode('load') : openFolder(), 'Kit display; again to open a kit folder'], ['SAVE', 465, () => post({ cmd: 'saveKit' }), 'Save the kit (⌘S)']], 420);
+  ui.pages = row(PAGE_NAMES.map((t, i) => [t, 560 + i * 55, () => selectPage(i), `${t} page of the selected voice; again for its second row`]), 420);
   // the 16 step buttons; the first seven are the voices
   ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CLP/CYM', 'CL HH', 'OP HH', 'KIT', 'MORPH', 'SONG', 'PROJECT', 'CONFIG', 'RELOAD', 'LAST STEP', 'FX', 'PATTERN']
     .forEach((t, i) => {
       const x = 72 + i * 57.2;
-      const b = button(g, x, 498, 22, i < 7 ? () => hit(i) : null, { square: true, title: i < 7 ? `Trigger ${i + 1}: ${t}` : undefined });
+      const b = button(g, x, 498, 22, i < 7 ? e => voicePress(i, e) : null, { square: true, title: i < 7 ? `${t}: play and select · SHIFT (or ⌥) mutes` : undefined });
       if (i < 7) ui.trig[i].push(b);
       label(g, x, 536, t, 'lbl small');
     });
@@ -349,10 +355,10 @@ function buildModule(svg) {
   }
 
   // mode buttons
-  const mode = (t, x, y, fn, title) => { label(g, x, y - 20, t, 'lbl small'); button(g, x, y, 12, fn, { title }); };
-  mode('EDIT', 66, 222); mode('PERFORM', 120, 222);
+  const mode = (t, x, y, fn, title) => { label(g, x, y - 20, t, 'lbl small'); return button(g, x, y, 12, fn, { title }); };
+  ui.edit = mode('EDIT', 66, 222, () => setMode('edit'), 'Edit voices: select buttons pick the page'); ui.perf = mode('PERFORM', 120, 222, () => setMode('load'), 'Perform: select buttons play the voices');
   mode('MOD', 66, 278); mode('FX', 120, 278);
-  mode('SHIFT', 66, 334); mode('SAVE/LOAD', 120, 334, openFolder, 'Open a folder of .SND kits');
+  ui.shift = mode('SHIFT', 66, 334, toggleShift, 'Latch SHIFT: select buttons then mute (perform mode)'); mode('SAVE/LOAD', 120, 334, openFolder, 'Open a folder of .SND kits');
   el('path', { d: 'M54 352 v8 h78 v-8', fill: 'none', stroke: '#9a9893', 'stroke-width': 1 }, g);
   label(g, 93, 374, 'CONFIG', 'lbl small dim');
 
@@ -364,12 +370,12 @@ function buildModule(svg) {
   // DRUM + select buttons; in perform mode the select buttons fire the voices
   el('rect', { x: 38, y: 440, width: 64, height: 88, rx: 4, fill: '#2b2b2d' }, g);
   label(g, 70, 460, 'DRUM', 'lbl small');
-  button(g, 70, 498, 17, null);
+  ui.drum = button(g, 70, 498, 17, () => { state.drum = !state.drum; refresh(); }, { title: 'DRUM, then a select button: choose the voice to edit' });
   [['OSC', 'DRUM1'], ['AEG', 'DRUM2'], ['MOD', 'DRUM3'], ['FM', 'SNARE'], ['CLICK', 'CLP/CYM'], ['FILTER', 'CL HH'], ['MIX', 'OP HH']]
     .forEach(([a, b], i) => {
       const x = 150 + i * 68;
       label(g, x, 452, a + '\n' + b, 'lbl small');
-      ui.trig[i].push(button(g, x, 498, 17, e => hit(i, e.shiftKey), { title: `${b}: fire (perform mode), shift for accent` }));
+      ui.trig[i].push(button(g, x, 498, 17, e => modulePress(i, e), { title: `${b}: fire (perform), ${a} page (edit), voice (after DRUM); shift-click accent` }));
     });
   label(g, 40, 566, 'PHX-D01', 'model', 'start');
   label(g, 604, 564, 'LXR-DRUM MODULE LAYOUT', 'brand', 'end');
@@ -428,12 +434,16 @@ document.addEventListener('keydown', e => {
 
 // Called by the host with {engines, kits: [{name, file}], kit, folder}.
 window.lxrState = s => {
+  if (s.params) state.params = s.params.slice();
   const enginesChanged = s.engines && s.engines.join() !== state.engines.join();
   Object.assign(state, s);
   if (enginesChanged) initToolbar();
   refresh();
 };
 
-initToolbar();
-build();
-post({ cmd: 'ready' });
+// Start once every script (edit, sequencer, files) has loaded.
+document.addEventListener('DOMContentLoaded', () => {
+  initToolbar();
+  build();
+  post({ cmd: 'ready' });
+});

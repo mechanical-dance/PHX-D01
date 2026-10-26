@@ -49,6 +49,7 @@ static int note_off_track[LXA_TRACKS];
 static double note_off_at[LXA_TRACKS];
 
 static _Atomic int playhead = -1;
+static _Atomic int muted[LXA_TRACKS];   /* muted tracks don't play from the sequencer or MIDI in */
 static _Atomic uint32_t hits[LXA_TRACKS];
 static AudioQueueRef queue;
 static int out_channels = 2;   /* 2 = stereo mix, 4 = one channel per jack; changed only while the queue is down */
@@ -104,7 +105,7 @@ static void sequence(double block_end)
 		if (at >= block_end) break;
 		int s = step % pat_len;
 		for (int t = 0; t < LXA_TRACKS; t++)
-			if (pattern[t][s].vel) play_note(t, pattern[t][s].note, pattern[t][s].vel, at, 1);
+			if (pattern[t][s].vel && !atomic_load(&muted[t])) play_note(t, pattern[t][s].note, pattern[t][s].vel, at, 1);
 		atomic_store(&playhead, s);
 		step = s + 1;
 		grid_at += step_frames();
@@ -114,7 +115,7 @@ static void sequence(double block_end)
 static void handle(Cmd *c)
 {
 	switch (c->type) {
-	case CMD_HIT: play_note(c->arg, c->note, c->vel, now, !c->from_midi); break;
+	case CMD_HIT: if (!(c->from_midi && atomic_load(&muted[c->arg]))) play_note(c->arg, c->note, c->vel, now, !c->from_midi); break;
 	case CMD_LOAD: for (int e = 0; e < n_engines; e++) engines[e].load(c->data.params); break;
 	case CMD_ENGINE: active = c->arg; break;
 	case CMD_SOLO: solo = c->arg; break;
@@ -303,6 +304,8 @@ void lxa_load(const uint8_t params[LXR_KIT_PARAMS])
 /* The set must stay alive while any engine uses it; the app keeps every set it sends (they are small and rare). */
 void lxa_samples(const LxaSamples *set) { Cmd c = { .type = CMD_SAMPLES, .samples = set }; push(&c); }
 int lxa_engine_has_samples(int engine) { return engine >= 0 && engine < n_engines && engines[engine].samples != NULL; }
+
+void lxa_mute(int track, int on) { if (track >= 0 && track < LXA_TRACKS) atomic_store(&muted[track], on != 0); }
 
 static void simple(int type, int arg) { Cmd c = { .type = type, .arg = arg }; push(&c); }
 void lxa_engine(int engine) { if (engine >= 0 && engine < n_engines) simple(CMD_ENGINE, engine); }
