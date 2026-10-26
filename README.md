@@ -1,5 +1,3 @@
-<p align="center"><img src="docs/logo.png" width="160" alt="PHX-D01 logo"></p>
-
 # PHX-D01
 
 Audition LXR kits (`.SND`) on the Mac with the LXR's own sound engine, compiled natively. No SD-card swapping.
@@ -17,15 +15,31 @@ Audition LXR kits (`.SND`) on the Mac with the LXR's own sound engine, compiled 
 - **MIDI in and out, any audio device.** Output is a stereo mix or the 4 jacks on separate channels.
 - **Command-line tools.** `lxr-play` plays kits live in the terminal; `lxr-render` renders a kit to WAV.
 
+<p align="center"><img src="docs/logo.png" width="160" alt="PHX-D01 logo"></p>
+
+## Prerequisites
+PHX-D01 contains no LXR code or sounds of its own. The engine and the kits come from their authors, and you download
+them yourself:
+
+- **Erica Synths' LXR-02 firmware** ([lxr-desktop-app](https://github.com/erica-synths/lxr-desktop-app), required).
+  This is the source code that runs inside the LXR-02. The build compiles it for the Mac, so what you hear is the
+  machine's own sound engine, not an imitation.
+- **Brendan Clarke's LXR02Open** ([LXR02Open](https://github.com/brendanclarke/LXR02Open), optional).
+  An open port of the original Sonic Potions LXR firmware. It adds a second engine, so you can hear how a kit sounds
+  on the first-generation LXR. Its licence forbids commercial use, so it isn't included here.
+- **Kits** (optional; the app starts with a single INIT kit). Erica's factory kits are on the
+  [LXR-02 page](https://www.ericasynths.lv/shop/drum-machines/drum-synthesizer-lxr-02) under Downloads:
+  *Factory SD content* is the kits the machine ships with, and *Sound Pack 1 (Hrtl DLC)* is a kit pack by Leoš Hort.
+  You can also open a copy of your own SD card.
+- **Xcode command-line tools** (`xcode-select --install`) for the compiler. The app is built and tested on Apple Silicon.
+
 ## Quick start
 ```sh
 git clone https://github.com/erica-synths/lxr-desktop-app ~/code/vendor/lxr-02/lxr-desktop-app
-git clone https://github.com/brendanclarke/LXR02Open ~/code/vendor/lxr-02/LXR02Open   # optional: LXR-1 engine
+git clone https://github.com/brendanclarke/LXR02Open ~/code/vendor/lxr-02/LXR02Open   # optional
 make app && open build/PHX-D01.app
 ```
-The app ships with no kits. Get Erica's factory kits from the
-[LXR-02 page](https://www.ericasynths.lv/shop/drum-machines/drum-synthesizer-lxr-02) (Downloads: *Factory SD
-content*, *Sound Pack 1 (Hrtl DLC)*), or open your own card. See [Install](docs/install.md).
+Then open a kit folder (File ▸ Open Kit Folder…) or a card (File ▸ Open Project…). See [Install](docs/install.md).
 
 ## Docs
 - [Install](docs/install.md): prerequisites, building, getting kits
@@ -37,14 +51,14 @@ content*, *Sound Pack 1 (Hrtl DLC)*), or open your own card. See [Install](docs/
 ## Credits
 - **Julian Schmidt / Sonic Potions**: the LXR drum synth and its firmware.
 - **Erica Synths**: the LXR-02 and LXR-Drum, and the open-source
-  [lxr-desktop-app](https://github.com/erica-synths/lxr-desktop-app) firmware (GPL-3.0).
+  [lxr-desktop-app](https://github.com/erica-synths/lxr-desktop-app) firmware.
 - **Brendan Clarke**: [LXR02Open](https://github.com/brendanclarke/LXR02Open), the source of the LXR-1 engine.
 - **Leoš Hort**: the Hrtl kit pack.
 
-PHX-D01 is not affiliated with Erica Synths or Sonic Potions. "LXR", "LXR-02" and "Erica Synths" are their names.
-Kits are their authors' work and aren't included here.
-
 ## Licence
-GPL-3.0 (see `LICENSE`), the same as the Erica Synths firmware it builds on.
-The optional LXR-1 engine is built from your own clone of LXR02Open under that project's non-commercial licence.
-It isn't part of this repo, so don't share builds that include `engine-lxr1.dylib`.
+GPL-3.0-only (see `LICENSE`). Erica Synths' firmware terms ([NOTICE](https://github.com/erica-synths/lxr-desktop-app/blob/main/NOTICE.md))
+apply to their code. PHX-D01 is not affiliated with or approved by Erica Synths or Sonic Potions. "Erica Synths",
+"LXR" and "LXR-02" are Erica Synths' trademarks and are used here only to say what PHX-D01 works with.
+
+The LXR-1 engine is built from your own clone of LXR02Open, under that project's non-commercial licence.
+Don't share builds that include `engine-lxr1.dylib`.
