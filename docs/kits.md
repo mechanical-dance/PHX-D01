@@ -12,9 +12,6 @@ Both machines store kits in `PROJ00`. The layout is detected automatically:
 Cards are saved in the current panel's layout.
 
 ## Projects
-A project (`~/Documents/PHX-D01/Projects/<name>/`) holds the kits in SD-card layout (`PROJ00/`), their samples, and
+A project (`~/Documents/PHX-D01/Projects/<name>/`) holds the kits in SD-card layout (`PROJ00/`) and
 the app's patterns and settings (`phx.json`). Open it with File ▸ Open Project….
 
-## Samples
-The LXR-02 holds up to 120 samples in 1.5 MB (about 17 s at 44.1 kHz, 16-bit mono). The app enforces the count,
-not the size.
