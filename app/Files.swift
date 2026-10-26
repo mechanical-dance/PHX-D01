@@ -357,29 +357,42 @@ extension App {
     }
 }
 
-// ---------- projects: everything you're working on in one folder (a PHX-D01 idea; the module has no projects) ----------
-// Flat like the module's card folder: NN-NAME.SND kits (the current bank, edits included), NN-NAME.PAT patterns A-H,
-// plus samples/ and loops/ (copies) and phx.json with the exact patterns, tempo and swing.
+// ---------- projects: kits, patterns, samples and tempo in one folder, with a card-ready folder inside ----------
+// Module: Project00/ holds up to 128 kits (the module has kits only). Desktop: PROJ00/ holds 64 kits, the patterns as
+// .PAT and PRJ.NFO (the name); missing files just mean an incomplete project to the firmware, and leaving GLO.CFG out
+// keeps the card's global settings. Next to it: samples/, loops/ and phx.json (the exact patterns, tempo, swing).
 extension App {
     func saveProject(_ d: [String: Any]) {
         guard !kits.isEmpty else { return }
-        let pats = patterns(from: d), swing = (d["swing"] as? NSNumber)?.doubleValue ?? 0, ids = bankKits.filter { !kits[$0].virtual || kits[$0].edited }
-        let p = NSSavePanel()
+        let pats = patterns(from: d), swing = (d["swing"] as? NSNumber)?.doubleValue ?? 0
+        let ids = bankKits.filter { !kits[$0].virtual || kits[$0].edited }
         let root = userRoot.appendingPathComponent("Projects")
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let n = ((try? FileManager.default.contentsOfDirectory(atPath: root.path))?.filter { !$0.hasPrefix(".") }.count ?? 0) + 1
+        let p = NSSavePanel()
         p.directoryURL = root
-        p.nameFieldStringValue = "Project \(((try? FileManager.default.contentsOfDirectory(atPath: root.path))?.count ?? 0) + 1)"
+        p.nameFieldStringValue = "Project \(n)"
         p.prompt = "Save Project"
+        let kind = NSSegmentedControl(labels: ["Module", "Desktop"], trackingMode: .selectOne, target: nil, action: nil)
+        kind.selectedSegment = (d["hw"] as? NSNumber)?.intValue == 0 ? 1 : 0
+        let row = NSStackView(views: [NSTextField(labelWithString: "Card layout:"), kind])
+        row.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        p.accessoryView = row
         p.beginSheetModal(for: window) { r in
             guard r == .OK, let dir = p.url else { return }
-            let fm = FileManager.default
+            let desktop = kind.selectedSegment == 1, fm = FileManager.default
+            let card = dir.appendingPathComponent(desktop ? "PROJ00" : "Project00")
+            let keep = Array(ids.prefix(desktop ? 64 : bankSlots))
             do {
-                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-                for (n, i) in ids.enumerated() {
-                    try LxrFile.kitData(name: self.kits[i].name, params: self.kits[i].params).write(to: dir.appendingPathComponent(LxrFile.fileName(n, self.kits[i].name, "SND")))
+                try fm.createDirectory(at: card, withIntermediateDirectories: true)
+                for (n, i) in keep.enumerated() {
+                    guard self.write(LxrFile.kitData(name: self.kits[i].name, params: self.kits[i].params), to: card.appendingPathComponent(LxrFile.fileName(n, self.kits[i].name, "SND"))) else { return }
                 }
-                for (n, pat) in pats.enumerated() {
-                    try LxrFile.patternData(pat, swing: swing, kitNr: 0).write(to: dir.appendingPathComponent(LxrFile.fileName(n, pat.name, "PAT")))
+                if desktop {
+                    for (n, pat) in pats.enumerated() {
+                        try LxrFile.patternData(pat, swing: swing, kitNr: 0).write(to: card.appendingPathComponent(LxrFile.fileName(n, pat.name, "PAT")))
+                    }
+                    try Data(LxrFile.name8(dir.lastPathComponent)).write(to: card.appendingPathComponent("PRJ.NFO"))
                 }
                 for s in self.samples {
                     let sub = dir.appendingPathComponent(s.loop ? "loops" : "samples")
@@ -388,7 +401,9 @@ extension App {
                     if !fm.fileExists(atPath: dest.path) { try fm.copyItem(at: s.url, to: dest) }
                 }
                 try (d["json"] as? String ?? "{}").write(to: dir.appendingPathComponent("phx.json"), atomically: true, encoding: .utf8)
-                self.reveal(folder: dir, file: nil)
+                self.reveal(folder: card, file: nil)
+                let dropped = ids.count - keep.count
+                self.js("lxrToast", ["text": "Saved \(dir.lastPathComponent) (\(desktop ? "desktop" : "module"), \(keep.count) kits)" + (dropped > 0 ? ", \(dropped) kits past 64 left out" : "")])
             } catch { self.alert("Couldn't save the project", error.localizedDescription) }
         }
     }
@@ -398,7 +413,7 @@ extension App {
         p.canChooseDirectories = true
         p.canChooseFiles = false
         p.directoryURL = userRoot.appendingPathComponent("Projects")
-        p.message = "Choose a project folder (or a kit folder from the SD card)"
+        p.message = "Choose a project, or a card folder (PROJnn or Project00)"
         p.beginSheetModal(for: window) { r in
             guard r == .OK, let dir = p.url else { return }
             self.loadProject(dir)
@@ -407,21 +422,24 @@ extension App {
 
     func loadProject(_ dir: URL) {
         let fm = FileManager.default
-        // samples replace the current set
+        // the card folder inside a project, or the folder itself when it is one
+        let subs = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.isDirectoryKey])) ?? []).filter(\.hasDirectoryPath)
+        let card = subs.first { $0.lastPathComponent.range(of: #"^(proj|project)\d\d$"#, options: [.regularExpression, .caseInsensitive]) != nil } ?? dir
         let sampleDirs = ["samples", "loops"].map { dir.appendingPathComponent($0) }.filter { fm.fileExists(atPath: $0.path) }
-        samples = []
-        addSamples(sampleDirs)
-        // patterns: the app's own data if present, else the .PAT files
+        if !sampleDirs.isEmpty { samples = []; addSamples(sampleDirs) }
+        // patterns: the app's own data if present, else the card's .PAT files
         if let json = try? String(contentsOf: dir.appendingPathComponent("phx.json"), encoding: .utf8), json.count > 2 {
             web.evaluateJavaScript("lxrProject(\(json))")
         } else {
-            let files = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
+            let files = ((try? fm.contentsOfDirectory(at: card, includingPropertiesForKeys: nil)) ?? [])
                 .filter { $0.pathExtension.uppercased() == "PAT" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
             let pats = files.compactMap { (try? Data(contentsOf: $0)).flatMap { LxrFile.readPattern($0, maxSteps: Int(LXA_MAX_STEPS)) } }
                 .filter { $0.0.steps.contains { $0.contains { $0[0] > 0 } } }
-            js("lxrProject", ["patterns": pats.prefix(8).map { ["name": $0.0.name, "len": $0.0.len, "steps": $0.0.steps] }, "swing": pats.first?.1 ?? 0])
+            if !pats.isEmpty {
+                js("lxrProject", ["patterns": pats.prefix(8).map { ["name": $0.0.name, "len": $0.0.len, "steps": $0.0.steps] }, "swing": pats.first?.1 ?? 0])
+            }
         }
-        reveal(folder: dir, file: nil)
-        select(kits.firstIndex { $0.dir.path == dir.path } ?? kit)
+        reveal(folder: card, file: nil)
+        select(kits.firstIndex { $0.dir.path == card.path } ?? kit)
     }
 }

@@ -22,7 +22,7 @@ window.phx = {
   },
   saveProject() {
     const all = seq.patterns.map((p, i) => ({ ...patternMsg(p), name: patternName(i) }));
-    post({ cmd: 'saveProject', swing: seq.swing, patterns: all,
+    post({ cmd: 'saveProject', hw: state.hw, swing: seq.swing, patterns: all,
       json: JSON.stringify({ patterns: seq.patterns, slot: seq.slot, bpm: seq.bpm, swing: seq.swing }) });
   },
   saveBank() {
@@ -81,7 +81,7 @@ function drawSide() {
       h('div', { className: 'btns' }, btn('Export…', () => phx.exportPatterns(false), '⌘E'), btn('Export A–H…', () => phx.exportPatterns(true), '⇧⌘E'),
         btn('Import…', 'importPatterns', 'Fills slots from the current one on (⌘I)'))),
     section('Project',
-      h('p', { className: 'dim', textContent: 'This bank\'s kits, patterns A–H, samples and tempo in one folder.' }),
+      h('p', { className: 'dim', textContent: 'This bank\'s kits, patterns, samples and tempo, with a card-ready Project00 (module) or PROJ00 (desktop) folder inside.' }),
       h('div', { className: 'btns' }, btn('Save project…', () => phx.saveProject(), '⌥⇧⌘S'), btn('Open project…', 'openProject', '⌥⌘O'))),
     section('Bank',
       h('p', { className: 'dim', textContent: 'This bank\'s kits as NN-NAME.SND plus patterns A–H as .PAT, ready for the SD card.' }),
