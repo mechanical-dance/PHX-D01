@@ -45,9 +45,13 @@ static void set_lfo_target(int lfo, uint8_t param)
 	}
 }
 
-/* Mirrors LXR02Open preset_sendDrumsetParameters + preset_morphTick (morph 0), after translating the kit. */
-void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS])
+/* Mirrors LXR02Open preset_sendDrumsetParameters + preset_morphTick (morph 0), after translating the kit.
+   An edit sends only the parameters that differ from the last ones sent, as a knob turn on the hardware does. */
+static int send_kit(const uint8_t params[LXR_KIT_PARAMS], int edit)
 {
+	static uint8_t last_kit[LXR_KIT_PARAMS], last_sent[END_OF_SOUND_PARAMETERS];
+	static int loaded;
+	edit = edit && loaded;
 	_Static_assert(LXR2_NUM_PARAMS == LXR_KIT_PARAMS, "kit size");
 	_Static_assert(LXR1_NUM_PARAMS == END_OF_SOUND_PARAMETERS, "LXR-1 parameter count");
 	int have[END_OF_SOUND_PARAMETERS] = {0};
@@ -56,8 +60,10 @@ void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS])
 		if (lxr2_to_lxr1_param[i] >= 0) { p[lxr2_to_lxr1_param[i]] = params[i]; have[lxr2_to_lxr1_param[i]] = 1; }
 	for (int i = 0; i < 6; i++) {
 		const uint8_t vel = params[PAR_VEL_DEST_1 + i], lfo = params[PAR_TARGET_LFO1 + i];
-		modNode_setDestination(&velocityModulators[i], vel < LXR2_NUM_MODTARGETS ? lxr2_modtarget_to_lxr1_param[vel] : 0);
-		set_lfo_target(i, lfo < LXR2_NUM_MODTARGETS ? lxr2_modtarget_to_lxr1_param[lfo] : 0);
+		if (!edit || vel != last_kit[PAR_VEL_DEST_1 + i])
+			modNode_setDestination(&velocityModulators[i], vel < LXR2_NUM_MODTARGETS ? lxr2_modtarget_to_lxr1_param[vel] : 0);
+		if (!edit || lfo != last_kit[PAR_TARGET_LFO1 + i])
+			set_lfo_target(i, lfo < LXR2_NUM_MODTARGETS ? lxr2_modtarget_to_lxr1_param[lfo] : 0);
 		if (p[PAR_VOICE_LFO1 + i] < 1 || p[PAR_VOICE_LFO1 + i] > 6) p[PAR_VOICE_LFO1 + i] = 1;
 	}
 	/* LXR-2-only values: the FX bus (routing 6) doesn't exist, so those voices play dry on the main output;
@@ -71,14 +77,23 @@ void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS])
 		if (*v == 5) *v = 3; else if (*v > 5) *v -= 1;
 	}
 	for (int i = 0; i < END_OF_SOUND_PARAMETERS; i++) if (have[i]) parameter_values[i] = p[i];
+	int sent = 0;
 	for (int i = 0; i < END_OF_SOUND_PARAMETERS; i++) {
 		if (!have[i] || i == 127) continue;   /* 127: CC wraparound bug, skipped like preset_morphShouldSkip */
 		if ((i >= PAR_VEL_DEST_1 && i <= PAR_VEL_DEST_6) || (i >= PAR_VOICE_LFO1 && i <= PAR_VOICE_LFO6) ||
 		    (i >= PAR_TARGET_LFO1 && i <= PAR_TARGET_LFO6)) continue;
+		if (edit && p[i] == last_sent[i]) continue;
 		if (i < 128) frontPanel_sendData(MIDI_CC, (uint8_t)i, p[i]);
 		else frontPanel_sendData(CC_2, (uint8_t)(i - 128), p[i]);
+		sent++;
 	}
+	memcpy(last_kit, params, LXR_KIT_PARAMS);
+	memcpy(last_sent, p, sizeof last_sent);
+	loaded = 1;
+	return sent;
 }
+void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS]) { send_kit(params, 0); }
+int lxr_edit_params(const uint8_t params[LXR_KIT_PARAMS]) { return send_kit(params, 1); }
 
 void lxr_hit(int voice, uint8_t velocity)
 {

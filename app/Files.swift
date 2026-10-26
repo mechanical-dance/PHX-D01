@@ -259,7 +259,7 @@ extension App {
         guard !kits.isEmpty, voice >= 0, voice < 6 else { return }
         kits[kit].params[waveParams[voice]] = UInt8(clamping: value)
         kits[kit].edited = true
-        applyKit()
+        applyKit(edit: true)
         sendState()
     }
 

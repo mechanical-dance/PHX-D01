@@ -21,6 +21,7 @@ typedef struct {
 	void (*set_mod)(const LxrMod *);   /* optional: the module's mod matrix */
 	void (*set_morph)(const uint8_t *, const uint8_t *, uint8_t);   /* optional: the morph pair, for the matrix */
 	void (*sample_limits)(uint32_t *, uint32_t *);   /* optional, with samples */
+	int (*edit)(const uint8_t *);   /* optional: only what changed */
 } Engine;
 
 #define MAX_ENGINES 4
@@ -30,7 +31,7 @@ static Engine engines[MAX_ENGINES];
 static int n_engines;
 
 /* Commands to the audio thread: many producers (UI, MIDI) behind a lock, one consumer that never locks. */
-enum { CMD_HIT, CMD_LOAD, CMD_ENGINE, CMD_SOLO, CMD_FADER, CMD_HW, CMD_PATTERN, CMD_TRANSPORT, CMD_TEMPO, CMD_SAMPLES, CMD_MATRIX, CMD_CV, CMD_ACCENT, CMD_MORPH };
+enum { CMD_HIT, CMD_LOAD, CMD_EDIT, CMD_ENGINE, CMD_SOLO, CMD_FADER, CMD_HW, CMD_PATTERN, CMD_TRANSPORT, CMD_TEMPO, CMD_SAMPLES, CMD_MATRIX, CMD_CV, CMD_ACCENT, CMD_MORPH };
 typedef struct {
 	int type, arg, vel, note, from_midi;
 	float value, value2;
@@ -134,6 +135,7 @@ static void handle(Cmd *c)
 	switch (c->type) {
 	case CMD_HIT: if (!(c->from_midi && atomic_load(&muted[c->arg]))) play_note(c->arg, c->note, c->vel, now, !c->from_midi); break;
 	case CMD_LOAD: for (int e = 0; e < n_engines; e++) engines[e].load(c->data.params); break;
+	case CMD_EDIT: for (int e = 0; e < n_engines; e++) if (engines[e].edit) engines[e].edit(c->data.params); else engines[e].load(c->data.params); break;
 	case CMD_ENGINE: active = c->arg; break;
 	case CMD_SOLO: solo = c->arg; break;
 	case CMD_HW: hw = c->arg; apply_faders(); send_mod(); break;
@@ -195,7 +197,7 @@ static int load_engine(const char *path)
 	if (!h) return 0;
 	Engine e = { dlsym(h, "lxr_engine_name"), dlsym(h, "lxr_init"), dlsym(h, "lxr_load_params"), dlsym(h, "lxr_hit"),
 	             dlsym(h, "lxr_note"), dlsym(h, "lxr_set_fader"), dlsym(h, "lxr_render"), dlsym(h, "lxr_set_samples"), dlsym(h, "lxr_set_mod"), dlsym(h, "lxr_set_morph"),
-	             dlsym(h, "lxr_sample_limits") };
+	             dlsym(h, "lxr_sample_limits"), dlsym(h, "lxr_edit_params") };
 	if (!e.name || !e.init || !e.load || !e.hit || !e.note || !e.fader || !e.render) { fprintf(stderr, "%s: missing symbols\n", path); return 0; }
 	e.init();
 	engines[n_engines++] = e;
@@ -322,6 +324,12 @@ const char *lxa_engine_name(int engine) { return engine >= 0 && engine < n_engin
 void lxa_load(const uint8_t params[LXR_KIT_PARAMS])
 {
 	Cmd c = { .type = CMD_LOAD };
+	memcpy(c.data.params, params, LXR_KIT_PARAMS);
+	push(&c);
+}
+void lxa_edit(const uint8_t params[LXR_KIT_PARAMS])
+{
+	Cmd c = { .type = CMD_EDIT };
 	memcpy(c.data.params, params, LXR_KIT_PARAMS);
 	push(&c);
 }

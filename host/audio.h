@@ -17,6 +17,7 @@ int lxa_engine_count(void);
 const char *lxa_engine_name(int engine);
 
 void lxa_load(const uint8_t params[LXR_KIT_PARAMS]);   /* into every engine, so switching engines keeps the kit */
+void lxa_edit(const uint8_t params[LXR_KIT_PARAMS]);   /* the loaded kit after an edit: engines send only what changed */
 void lxa_engine(int engine);
 void lxa_hardware(int hw);
 void lxa_hit(int trigger, int velocity);   /* trigger 0-6 (5 = closed hat, 6 = open hat), velocity 1-127 */

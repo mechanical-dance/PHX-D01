@@ -51,8 +51,9 @@ static int morph_have;
 const char *lxr_engine_name(void) { return "LXR-2"; }
 
 /* Mirrors the firmware's kit load: preset_readDrumsetData, preset_sendDrumsetParameters (mod targets),
-   then preset_morph_tick (every parameter as a front-panel CC; the parser adds the +1 offset below 128). */
-void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS])
+   then preset_morph_tick (every parameter as a front-panel CC; the parser adds the +1 offset below 128).
+   An edit sends only the parameters that differ from what the engine has, as a knob turn on the hardware does. */
+static int send_kit(const uint8_t params[LXR_KIT_PARAMS], int edit)
 {
 	uint8_t p[END_OF_SOUND_PARAMETERS];
 	memcpy(p, params, sizeof p);
@@ -62,18 +63,27 @@ void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS])
 		if (p[PAR_TARGET_LFO1 + i] >= nmt) p[PAR_TARGET_LFO1 + i] = 0;
 		if (p[PAR_VOICE_LFO1 + i] < 1 || p[PAR_VOICE_LFO1 + i] > 6) p[PAR_VOICE_LFO1 + i] = 1;
 	}
+	uint8_t was[END_OF_SOUND_PARAMETERS];
+	memcpy(was, activeParameters, sizeof was);
 	memcpy(activeParameters, p, END_OF_SOUND_PARAMETERS);
 	morph_have = 0;   /* until the host sends this kit's morph pair */
-	route_targets();
+	if (!edit || memcmp(was + PAR_VEL_DEST_1, p + PAR_VEL_DEST_1, 6) || memcmp(was + PAR_TARGET_LFO1, p + PAR_TARGET_LFO1, 6) ||
+	    memcmp(was + PAR_VOICE_LFO1, p + PAR_VOICE_LFO1, 6))
+		route_targets();
+	int sent = 0;
 	for (int i = 0; i < END_OF_SOUND_PARAMETERS; i++) {
 		/* Firmware bug: index 127 (PAR_BANK_CHANGE) becomes CC 0 after the +1 offset, and midiParser_ccHandler then
 		   writes midiParser_originalCcValues[65536]. Skipped here (as LXR02Open does); bank change has no sound. */
-		if (i == 127) continue;
+		if (i == 127 || (edit && p[i] == was[i])) continue;
 		if (i < 128) send(MIDI_CC, (uint8_t)i, p[i]);
 		else send(CC_2, (uint8_t)(i - 128), p[i]);
+		sent++;
 	}
 	if (mod.on) mod_tick();
+	return sent;
 }
+void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS]) { send_kit(params, 0); }
+int lxr_edit_params(const uint8_t params[LXR_KIT_PARAMS]) { return send_kit(params, 1); }
 
 _Static_assert(END_OF_SOUND_PARAMETERS == LXR_KIT_PARAMS, "LXR-2 kit size");
 

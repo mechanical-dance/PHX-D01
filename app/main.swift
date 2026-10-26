@@ -92,7 +92,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "morph":
             morphTarget = Int(int("target"))
             morphAmount = UInt8(clamping: int("amount"))
-            applyKit()
+            applyKit(edit: true)
         case "midiOut":
             midi_out_select(int("i"))
             UserDefaults.standard.set(int("i") >= 0 ? String(cString: midi_out_name(int("i"))) : nil, forKey: "midiOut")
@@ -128,7 +128,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             guard !kits.isEmpty, i >= 0, i < kitBytes else { break }
             kits[kit].params[i] = UInt8(clamping: int("v"))
             kits[kit].edited = true
-            applyKit()
+            applyKit(edit: true)
         case "mute": lxa_mute(int("t"), int("on"))
         case "reloadKit": reloadKit()
         case "clearKit":
@@ -243,11 +243,12 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         sendState()
     }
 
-    // The selected kit, morphed toward the morph target by the firmware's rule.
-    func applyKit() {
+    // The selected kit, morphed toward the morph target by the firmware's rule. An edit (a knob, the morph) sends
+    // only what changed; a new kit is loaded in full.
+    func applyKit(edit: Bool = false) {
         guard !kits.isEmpty else { return }
         let p = heardParams()
-        p.withUnsafeBufferPointer { lxa_load($0.baseAddress); lxa_matrix($0.baseAddress! + Int(LXR_KIT_PARAMS)) }
+        p.withUnsafeBufferPointer { edit ? lxa_edit($0.baseAddress) : lxa_load($0.baseAddress); lxa_matrix($0.baseAddress! + Int(LXR_KIT_PARAMS)) }
         let b = morphTarget >= 0 && morphTarget < kits.count ? kits[morphTarget].params : kits[kit].params
         lxa_morph(kits[kit].params, b, Int32(morphAmount))
     }

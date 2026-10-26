@@ -13,6 +13,8 @@
 LXR_API const char *lxr_engine_name(void);
 LXR_API void lxr_init(void);
 LXR_API void lxr_load_params(const uint8_t params[LXR_KIT_PARAMS]);
+/* Optional: the same kit after an edit; sends only the parameters that changed. Returns how many it sent. */
+LXR_API int lxr_edit_params(const uint8_t params[LXR_KIT_PARAMS]);
 LXR_API void lxr_hit(int voice, uint8_t velocity);          /* trigger 0-6: voices drum1-3, snare, cymbal, hihat; 5 and 6 both play the hihat (closed/open decay), closed chokes open */
 LXR_API void lxr_note(int voice, uint8_t note, uint8_t velocity); /* as lxr_hit, pitched: note 60 = the kit's own pitch, +-1 = a semitone */
 LXR_API void lxr_set_fader(int voice, float gain);           /* voice 0-5 fader gain 0-1, after the fader curve; 1 = no fader */
