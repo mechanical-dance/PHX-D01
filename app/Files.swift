@@ -402,7 +402,10 @@ extension App {
 
     func clearSamples() { samples = []; sendSamples(); saveSampleList() }
     func saveSampleList() { UserDefaults.standard.set(samples.map(\.url.path), forKey: "samples") }
+    // At launch: the current project's samples/ and loops/ (what Open Project loads), else the last imported list.
     func restoreSamples() {
+        let dirs = ["samples", "loops"].map { project.appendingPathComponent($0) }.filter { FileManager.default.fileExists(atPath: $0.path) }
+        if !dirs.isEmpty { addSamples(dirs); return }
         let paths = UserDefaults.standard.stringArray(forKey: "samples") ?? []
         if !paths.isEmpty { addSamples(paths.map { URL(fileURLWithPath: $0) }.filter { FileManager.default.fileExists(atPath: $0.path) }, save: false) }
     }
