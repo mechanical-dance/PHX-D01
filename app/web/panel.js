@@ -566,9 +566,12 @@ document.addEventListener('keydown', e => {
 window.lxrState = s => {
   if (s.params) { state.params = s.params.slice(); state.savedParams = s.params.slice(); }
   const enginesChanged = s.engines && s.engines.join() !== state.engines.join();
+  const hwChanged = s.hw !== undefined && s.hw !== state.hw;   // a restored session can open on the other panel
   Object.assign(state, s);
   if (enginesChanged) initToolbar();
+  if (hwChanged) { build(); if (typeof sendPattern === 'function') sendPattern(); }
   refresh();
+  if (s.morph) { morphEl().value = s.morph[0]; mtgEl().value = s.morph[1]; }
 };
 
 // Start once every script (edit, sequencer, files) has loaded.

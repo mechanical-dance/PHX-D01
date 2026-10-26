@@ -28,6 +28,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var samples: [FlashSample] = []   // the sample flash (SampleLoader.swift)
     var sampleReport: SampleLoader.Report?   // what the last Load Samples did
     var cardList: [[String: Any]]?   // cache of cardFiles(), dropped on every load and project switch
+    var engine: Int32 = 0, hw = Int32(LXA_DESKTOP)   // the engine and panel picked (Session.swift)
+    var sessionRestored = false
 
     func applicationDidFinishLaunching(_ note: Notification) {
         buildMenu()
@@ -64,15 +66,19 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         func int(_ k: String) -> Int32 { Int32((d[k] as? NSNumber)?.intValue ?? 0) }
         switch cmd {
         case "ready":
+            sessionRestored = false
             restoreIO()
             startFolder()
+            restoreSession()
+            applyKit()
+            sendState()
             restoreSampleFlash()
             sendSeqState(saved: true)
             startTicks()
         case "hit": lxa_hit(int("t"), int("vel"))
         case "kit": select(Int(int("i")))
-        case "engine": lxa_engine(int("i"))
-        case "hw": lxa_hardware(int("v"))
+        case "engine": engine = int("i"); lxa_engine(engine); saveSession()
+        case "hw": hw = int("v"); lxa_hardware(hw); saveSession()
         case "cv": lxa_cv(int("jack"), (d["v"] as? NSNumber)?.floatValue ?? 0)
         case "accent": lxa_accent(int("jack"), int("on"))
         case "fader": lxa_fader(int("i"), (d["pos"] as? NSNumber)?.floatValue ?? 1)
@@ -251,6 +257,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         p.withUnsafeBufferPointer { edit ? lxa_edit($0.baseAddress) : lxa_load($0.baseAddress); lxa_matrix($0.baseAddress! + Int(LXR_KIT_PARAMS)) }
         let b = morphTarget >= 0 && morphTarget < kits.count ? kits[morphTarget].params : kits[kit].params
         lxa_morph(kits[kit].params, b, Int32(morphAmount))
+        saveSession()
     }
 
     func heardParams() -> [UInt8] {
@@ -265,7 +272,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
 
     func sendState() {
         let engines = (0..<lxa_engine_count()).map { String(cString: lxa_engine_name($0)) }
-        let s: [String: Any] = ["engines": engines, "kit": kit,
+        let s: [String: Any] = ["engines": engines, "kit": kit, "engine": Int(engine), "hw": Int(hw), "morph": [Int(morphAmount), morphTarget],
                                 "project": project.lastPathComponent, "projectBank": bankName(projectCard), "projectLayout": layout(of: project),
                                 "kits": kits.map { ["name": $0.name, "file": $0.file, "bank": $0.bank, "edited": $0.edited, "virtual": $0.virtual] },
                                 "waves": kits.isEmpty ? [] : waveParams.map { Int(kits[kit].params[$0]) },
@@ -278,6 +285,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
                                     ["failed": r.failed ?? "", "skipped": (r.samples.skipped.map { ["samples/" + $0.0, $0.1] } + r.loops.skipped.map { ["loops/" + $0.0, $0.1] })]
                                 } ?? [:]]
         js("lxrState", s)
+        saveSession()   // saves and reloads end here too, so the session drops kits that are no longer edited
     }
 
     // Pattern from the page: 7 tracks of [velocity, note] per step.
