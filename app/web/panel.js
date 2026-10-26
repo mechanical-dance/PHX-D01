@@ -395,6 +395,7 @@ function buildDesktop(svg) {
 
   // logo and display
   label(g, 240, 128, 'PHX-D01', 'logo'); label(g, 240, 162, 'KIT AUDITIONER', 'logo sub');
+  el('image', { href: 'logo.svg', x: 464, y: 50, width: 83, height: 100 }, g);   // outline of the dock icon, like the LXR mascot
   display(g, 88, 182, 304, 86, 'lcd');
   [115, 195, 275, 355].forEach((x, k) => knob(g, x, 330, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': drag or scroll; double-click resets', k));
   encoder(g, 505, 205, 50, encoderTurn, encoderPush);

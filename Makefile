@@ -9,7 +9,7 @@ ENGINE := $(shell cd $(VENDOR)/Core/Src 2>/dev/null && ls Soundengine/DSPAudio/*
 LXR2_OBJS := $(patsubst %.c,$(B)/obj/%.o,$(ENGINE)) $(B)/obj/host/engine.o $(B)/obj/host/stubs.o $(B)/obj/menu/Cc2Text.o $(B)/obj/host/kit.o
 CFLAGS := -std=gnu11 -O2 -w -fvisibility=hidden '-Dsection(x)=unused' -Ishim -I$(INC) -I$(INC)/Soundengine -I$(SRC) -Ihost
 
-all: $(B)/lxr-render $(B)/lxr-play $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib $(B)/PHX-D01.app
+all: $(B)/lxr-render $(B)/lxr-play $(B)/PHX-D01.app
 
 $(B)/.patched: $(wildcard patches/*.patch)
 	rm -rf $(B)/src && mkdir -p $(B)/src && cp -R $(VENDOR)/Core $(B)/src/
@@ -34,6 +34,9 @@ $(B)/lxr-play: $(B)/obj/host/play.o $(B)/obj/host/audio.o $(B)/obj/host/midi.o $
 
 # --- LXR-1 engine: Sonic Potions 0.37 via LXR02Open (non-commercial licence; personal use) ---
 VENDOR1 ?= $(HOME)/code/vendor/lxr-02/LXR02Open
+# The LXR-1 engine is built only when Brendan Clarke's LXR02Open is cloned at VENDOR1 (its licence is
+# non-commercial, so it isn't part of this repo): git clone https://github.com/brendanclarke/LXR02Open
+ENGINES := $(B)/engine-lxr2.dylib $(if $(wildcard $(VENDOR1)/Core),$(B)/engine-lxr1.dylib)
 B1 := $(B)/lxr1
 ENGINE1 := $(shell cd $(VENDOR1)/Core 2>/dev/null && ls DSPAudio/*.c MIDI/*.c Sequencer/*.c Preset/ParameterArray.c Menu/Cc2Text.c | grep -v -e MIDI/Uart.c -e DSPAudio/random.c)
 LXR1_OBJS := $(patsubst %.c,$(B1)/obj/%.o,$(ENGINE1)) $(B1)/obj/host/engine1.o $(B1)/obj/host/stubs1.o $(B1)/obj/host/random1.o
@@ -65,13 +68,13 @@ clean:
 APP := $(B)/PHX-D01.app
 app: $(APP)
 # app/icon.svg is the source; AppIcon.icns is built from it (render at 1024, sips, iconutil).
-$(APP): app/AppIcon.icns $(wildcard app/*.swift) app/bridge.h host/audio.h host/midi.h app/Info.plist $(wildcard app/web/*) $(wildcard factory/Erica-factory/*) $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib
+$(APP): app/AppIcon.icns $(wildcard app/*.swift) app/bridge.h host/audio.h host/midi.h app/Info.plist $(wildcard app/web/*) factory/INIT.SND $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o $(ENGINES)
 	rm -rf $@ && mkdir -p $@/Contents/MacOS $@/Contents/Resources
 	swiftc -O -import-objc-header app/bridge.h app/*.swift $(B)/obj/host/audio.o $(B)/obj/host/midi.o $(B)/obj/host/kit.o \
 		-framework AudioToolbox -framework CoreAudio -framework CoreMIDI -framework WebKit -o $@/Contents/MacOS/lxr-audition
-	cp $(B)/engine-lxr2.dylib $(B)/engine-lxr1.dylib $@/Contents/MacOS/
+	cp $(ENGINES) $@/Contents/MacOS/
 	cp -R app/web $@/Contents/Resources/
 	cp app/AppIcon.icns $@/Contents/Resources/
-	cp -R factory/Erica-factory factory/INIT.SND $@/Contents/Resources/
+	cp factory/INIT.SND $@/Contents/Resources/
 	cp app/Info.plist $@/Contents/
 	codesign --force --deep -s - $@

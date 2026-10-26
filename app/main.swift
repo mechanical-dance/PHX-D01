@@ -140,16 +140,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         let args = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
         var paths = UserDefaults.standard.stringArray(forKey: "kitFolders") ?? UserDefaults.standard.string(forKey: "kitFolder").map { [$0] } ?? []
         paths += args.map { ($0 as NSString).expandingTildeInPath }
-        // Erica's factory kits ship inside the app but are played from a copy in the user banks, so every bank is a
-        // real folder: saves never land in the bundle, which a rebuild or update replaces.
-        // (copied once; after that it is the user's folder, renamed or not)
+        // A factory bank the user set up (Erica's factory kits are their download, not part of the app) stays a bank.
         let ud = UserDefaults.standard
         let factory = ud.string(forKey: "factoryBank").map { URL(fileURLWithPath: $0) } ?? userRoot.appendingPathComponent("Banks/Erica-factory")
-        if FileManager.default.fileExists(atPath: factory.path) { ud.set(true, forKey: "factoryCopied") }
-        else if !ud.bool(forKey: "factoryCopied"), let src = Bundle.main.resourceURL?.appendingPathComponent("Erica-factory") {
-            try? FileManager.default.createDirectory(at: factory.deletingLastPathComponent(), withIntermediateDirectories: true)
-            if (try? FileManager.default.copyItem(at: src, to: factory)) != nil { ud.set(true, forKey: "factoryCopied") }
-        }
         // built from scratch: the page says "ready" again whenever it reloads, and this must not add banks twice
         ensureProject()
         folders = [projectCard]
