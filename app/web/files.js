@@ -41,6 +41,35 @@ window.lxrToast = ({ text }) => {
   clearTimeout(t.timer); t.timer = setTimeout(() => t.classList.remove('show'), 2500);
 };
 
+// Load sheet (encoder push): a bank and its kits; double-click, Enter or Load plays the kit.
+phx.load = () => {
+  const d = $('loadkit');
+  let bank = state.kits[state.kit]?.bank ?? bankNames()[0];
+  const draw = () => {
+    const list = h('select', { size: 16, 'aria-label': 'Kits', className: 'kitlist' });
+    state.kits.forEach((k, i) => { if (k.bank === bank) list.append(h('option', { value: i, selected: i === state.kit, textContent: `${slotLabel(i)}  ${k.name}${k.virtual ? '  (empty)' : ''}` })); });
+    const go = () => { if (list.value !== '') { setKit(+list.value); d.close(); } };
+    list.ondblclick = go;
+    list.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go(); } };
+    d.replaceChildren(
+      h('h2', { textContent: 'Load kit' }),
+      h('div', { className: 'grid' },
+        h('label', { textContent: 'Bank' }),
+        h('select', { 'aria-label': 'Bank', onchange: e => { bank = e.target.value; draw(); } },
+          bankNames().map(b => h('option', { value: b, textContent: b, selected: b === bank }))),
+        h('label', { textContent: 'Kit' }), list),
+      h('div', { className: 'row end' },
+        h('button', { textContent: 'Open folder…', onclick: () => { d.close(); openFolder(); } }),
+        h('span', { className: 'grow' }),
+        h('button', { textContent: 'Cancel', onclick: () => d.close() }),
+        h('button', { className: 'primary', textContent: 'Load', onclick: go })));
+    list.focus();
+  };
+  draw();
+  if (!d.open) d.showModal();
+  d.querySelector('select.kitlist')?.focus();
+};
+
 // Save sheet: pick a loaded bank (rename it in place with ✎), a slot in it and the kit's name.
 const save = { open: false, morphed: false, bank: '', slot: 0, name: '', renaming: false };
 const slotOf = k => parseInt(k.file, 10);

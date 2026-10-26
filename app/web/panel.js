@@ -147,7 +147,7 @@ function drawKnobs() {
     kn.g.classList.toggle('idle', state.mode === 'edit' && !info);
   });
 }
-function encoder(parent, x, y, r, onStep) {
+function encoder(parent, x, y, r, onStep, onPush) {
   const g = el('g', { class: 'knob enc' }, parent);
   for (let i = 0; i < 36; i++) {
     const a = (i / 36) * Math.PI * 2;
@@ -162,9 +162,12 @@ function encoder(parent, x, y, r, onStep) {
   }
   el('polygon', { class: 'grip', points: pts.join(' ') }, grip);
   el('circle', { cx: x, cy: y, r: r * 0.55, fill: '#202020' }, grip);
-  el('title', {}, g).textContent = 'DATA: turn (drag or scroll) to browse kits';
-  let angle = 0;
-  turnable(g, d => { angle += d * 11; grip.setAttribute('transform', `rotate(${angle} ${x} ${y})`); onStep(d); }, 5);
+  el('title', {}, g).textContent = 'DATA: turn (drag or scroll) to browse kits · push (click): load dialog, or the save dialog in SAVE mode';
+  let angle = 0, turned = false;
+  turnable(g, d => { turned = true; angle += d * 11; grip.setAttribute('transform', `rotate(${angle} ${x} ${y})`); onStep(d); }, 5);
+  // a click without a turn is a push
+  g.addEventListener('pointerdown', () => { turned = false; });
+  g.addEventListener('pointerup', () => { if (!turned && onPush) { flash(grip); onPush(); } });
   return g;
 }
 function jack(parent, x, y, onPress, title, opts = {}) {
@@ -233,6 +236,8 @@ function setHw(h) {
   if (typeof sendPattern === 'function') sendPattern();
 }
 function openFolder() { post({ cmd: 'open' }); }
+// Encoder push: in SAVE mode the save dialog, otherwise the load dialog (the hardware's menus, minus knob naming).
+function encoderPush() { if (state.mode === 'save') phx.saveAs({ morphed: false }); else phx.load(); }
 
 // The 4 knobs edit what the display shows, like the hardware's menu pages.
 const KNOBS = [
@@ -261,11 +266,13 @@ function displayRows() {
     return [names.map(n => pad(n, 4)).join(''), vals.map(v => pad(v, 4)).join('')];
   }
   if (!k) return ['Load: Kit', 'no kits: LOAD'];
-  return [pad(pad(k.bank, 12), 12) + (state.engine === 0 ? 'LX2' : 'LX1'), `[${String(bankNumber(state.kit) - 1).padStart(2, '0')}] ${k.name}`];
+  if (state.mode === 'save') return ['Save: Kit  (push)', `[${slotLabel(state.kit)}] ${k.name}`];
+  return [pad(pad(k.bank, 12), 12) + (state.engine === 0 ? 'LX2' : 'LX1'), `[${slotLabel(state.kit)}] ${k.name}`];
 }
 // Kits grouped by bank (one bank per folder), numbered within their bank.
 // A kit's number is the NN- slot in its file name (1-based here, as the callers subtract 1), not its place in the list.
 function bankNumber(i) { const n = parseInt(state.kits[i]?.file, 10); return Number.isNaN(n) ? 0 : n + 1; }
+const slotLabel = i => (bankNumber(i) ? String(bankNumber(i) - 1).padStart(2, '0') : '--');   // -- : no NN- slot (e.g. the module's TMP.SND)
 function sharesSlot(i) { const k = state.kits[i]; return state.kits.some((o, j) => j !== i && o.bank === k.bank && parseInt(o.file, 10) === parseInt(k.file, 10)); }
 function bankNames() { return [...new Set(state.kits.map(k => k.bank || 'Kits'))]; }
 // Kit menus: one bank at a time in the kit menu, every bank (grouped) for the morph target.
@@ -276,7 +283,7 @@ function fillKits(s, bank) {
     if (bank !== undefined && k.bank !== bank) return;
     if (bank === undefined && (!group || group.label !== (k.bank || 'Kits'))) { group = document.createElement('optgroup'); group.label = k.bank || 'Kits'; s.appendChild(group); }
     const o = document.createElement('option');
-    o.value = i; o.textContent = `${String(bankNumber(i) - 1).padStart(2, '0')}  ${k.name}${k.virtual ? '' : '  (' + k.file + ')'}${sharesSlot(i) ? '  ⚠ same slot' : ''}`;
+    o.value = i; o.textContent = `${slotLabel(i)}  ${k.name}${k.virtual ? '' : '  (' + k.file + ')'}${sharesSlot(i) ? '  ⚠ same slot' : ''}`;
     (group || s).appendChild(o);
   });
 }
@@ -351,7 +358,7 @@ function buildDesktop(svg) {
   label(g, 240, 128, 'PHX-D01', 'logo'); label(g, 240, 162, 'KIT AUDITIONER', 'logo sub');
   display(g, 88, 182, 304, 86, 'lcd');
   [115, 195, 275, 355].forEach((x, k) => knob(g, x, 330, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': drag or scroll; double-click resets', k));
-  encoder(g, 505, 205, 50, d => setKit(state.kit + d));
+  encoder(g, 505, 205, 50, d => setKit(state.kit + d), encoderPush);
   label(g, 505, 282, 'DATA', 'lbl');
 
   // faders: six voices and master volume
@@ -376,7 +383,7 @@ function buildDesktop(svg) {
   // menu rows
   const row = (items, y) => items.map(([t, x, fn, title]) => { const b = button(g, x, y, 10, fn, { title }); label(g, x, y + 24, t, 'lbl small'); return b; });
   [ui.shift] = row([['SHIFT', 75, toggleShift, 'Latch SHIFT: voice buttons then mute/unmute'], ['PLAY', 135, () => window.seqToggle?.(), 'Play/stop the sequencer'], ['REC', 180], ['COPY', 232]], 420);
-  [ui.edit, ui.perf] = row([['VOICE', 300, () => setMode('edit'), 'Edit the selected voice'], ['PERF', 355, () => setMode('perf'), 'Performance: voice buttons mute/unmute'], ['LOAD', 410, () => state.mode !== 'load' ? setMode('load') : openFolder(), 'Kit display; again to open a kit folder'], ['SAVE', 465, () => phx.save(), 'Save the kit and the project (⌘S)']], 420);
+  [ui.edit, ui.perf] = row([['VOICE', 300, () => setMode('edit'), 'Edit the selected voice'], ['PERF', 355, () => setMode('perf'), 'Performance: voice buttons mute/unmute'], ['LOAD', 410, () => state.mode !== 'load' ? setMode('load') : openFolder(), 'LOAD mode: turn the encoder to browse, push it for the load dialog; LOAD again opens a kit folder'], ['SAVE', 465, () => (state.mode === 'save' ? phx.save() : setMode('save')), 'SAVE mode: push the encoder for the save dialog; SAVE again saves the kit and the project (⌘S)']], 420);
   ui.pages = row(PAGE_NAMES.slice(0, 8).map((t, i) => [t, 560 + i * 55, () => selectPage(i), `${t} page of the selected voice; again for its second row`]), 420);
   // the 16 step buttons; the first seven are the voices
   ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CLP/CYM', 'CL HH', 'OP HH', 'KIT', 'MORPH', 'SONG', 'PROJECT', 'CONFIG', 'RELOAD', 'LAST STEP', 'FX', 'PATTERN']
@@ -437,13 +444,14 @@ function buildModule(svg) {
   const mode = (t, x, y, fn, title) => { label(g, x, y - 20, t, 'lbl small'); return button(g, x, y, 12, fn, { title }); };
   ui.edit = mode('EDIT', 66, 222, () => setMode('edit'), 'Edit voices: select buttons pick the page'); ui.perf = mode('PERFORM', 120, 222, () => setMode('load'), 'Perform: select buttons play the voices');
   ui.mod = mode('MOD', 66, 278, modPress, 'MOD: the voice\'s mod matrix (again: next slot a/b/c) · SHIFT + MOD (or shift-click): its LFO'); ui.fx = mode('FX', 120, 278, fxPress, "FX: the kit's effect");
-  ui.shift = mode('SHIFT', 66, 334, toggleShift, 'Latch SHIFT: select buttons then mute (perform mode)'); mode('SAVE/LOAD', 120, 334, openFolder, 'Open a folder of .SND kits');
+  ui.shift = mode('SHIFT', 66, 334, toggleShift, 'Latch SHIFT: select buttons then mute (perform mode)'); mode('SAVE/LOAD', 120, 334, e => { const s = state.shift || e?.shiftKey; state.shift = false; setMode(s ? 'save' : 'load'); },
+    'SAVE/LOAD: load mode (turn the encoder to browse, push for the load dialog) · SHIFT + SAVE/LOAD: save mode (push for the save dialog)');
   el('path', { d: 'M54 352 v8 h78 v-8', fill: 'none', stroke: '#9a9893', 'stroke-width': 1 }, g);
   label(g, 93, 374, 'CONFIG', 'lbl small dim');
 
   display(g, 180, 238, 290, 76, 'seg');
   label(g, 560, 210, 'DATA', 'lbl small');
-  encoder(g, 560, 272, 40, d => setKit(state.kit + d));
+  encoder(g, 560, 272, 40, d => setKit(state.kit + d), encoderPush);
   [205, 300, 395, 490].forEach((x, k) => knob(g, x, 395, 27, d => turnKnob(k, d), 'Knob ' + (k + 1) + ': drag or scroll; double-click resets', k));
 
   // DRUM + select buttons; in perform mode the select buttons fire the voices

@@ -168,7 +168,7 @@ function markButtons() {
   ui.edit?.classList.toggle('on', state.mode === 'edit' && ![MATRIX_PAGE, LFO_PAGE, FX_PAGE].includes(state.page));
   ui.mod?.classList.toggle('on', state.mode === 'edit' && (state.page === MATRIX_PAGE || state.page === LFO_PAGE));
   ui.fx?.classList.toggle('on', state.mode === 'edit' && state.page === FX_PAGE);
-  ui.perf?.classList.toggle('on', state.mode === 'perf' || (state.hw === MODULE && state.mode !== 'edit'));
+  ui.perf?.classList.toggle('on', state.mode === 'perf' || (state.hw === MODULE && state.mode === 'load'));
 }
 
 // Option + 1-7 mutes from the keyboard.
