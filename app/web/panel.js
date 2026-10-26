@@ -263,7 +263,9 @@ function displayRows() {
   return [pad(pad(k.bank, 12), 12) + (state.engine === 0 ? 'LX2' : 'LX1'), `[${String(bankNumber(state.kit) - 1).padStart(2, '0')}] ${k.name}`];
 }
 // Kits grouped by bank (one bank per folder), numbered within their bank.
-function bankNumber(i) { const b = state.kits[i]?.bank; let n = 0; for (let j = 0; j <= i; j++) if (state.kits[j].bank === b) n++; return n; }
+// A kit's number is the NN- slot in its file name (1-based here, as the callers subtract 1), not its place in the list.
+function bankNumber(i) { const n = parseInt(state.kits[i]?.file, 10); return Number.isNaN(n) ? 0 : n + 1; }
+function sharesSlot(i) { const k = state.kits[i]; return state.kits.some((o, j) => j !== i && o.bank === k.bank && parseInt(o.file, 10) === parseInt(k.file, 10)); }
 function bankNames() { return [...new Set(state.kits.map(k => k.bank || 'Kits'))]; }
 // Kit menus: one bank at a time in the kit menu, every bank (grouped) for the morph target.
 function fillKits(s, bank) {
@@ -273,7 +275,7 @@ function fillKits(s, bank) {
     if (bank !== undefined && k.bank !== bank) return;
     if (bank === undefined && (!group || group.label !== (k.bank || 'Kits'))) { group = document.createElement('optgroup'); group.label = k.bank || 'Kits'; s.appendChild(group); }
     const o = document.createElement('option');
-    o.value = i; o.textContent = `${String(bankNumber(i) - 1).padStart(2, '0')}  ${k.name}${k.virtual ? '' : '  (' + k.file + ')'}`;
+    o.value = i; o.textContent = `${String(bankNumber(i) - 1).padStart(2, '0')}  ${k.name}${k.virtual ? '' : '  (' + k.file + ')'}${sharesSlot(i) ? '  ⚠ same slot' : ''}`;
     (group || s).appendChild(o);
   });
 }

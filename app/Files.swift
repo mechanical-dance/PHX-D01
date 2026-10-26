@@ -178,19 +178,32 @@ extension App {
 
     // The save sheet (files.js): a loaded bank, a slot in it, a name. A kit it replaces goes to the Trash first.
     func saveKitTo(_ d: [String: Any]) {
-        let fm = FileManager.default
         guard !kits.isEmpty, let bank = d["bank"] as? String, let dir = folders.first(where: { $0.lastPathComponent == bank }) else { return }
         let slot = (d["slot"] as? NSNumber)?.intValue ?? -1
         let name = (d["name"] as? String ?? "").trimmingCharacters(in: .whitespaces)
         guard (0..<bankSlots).contains(slot), !name.isEmpty else { return }
         let params = (d["morphed"] as? Bool ?? false) ? heardParams() : kits[kit].params
         let file = LxrFile.fileName(slot, name, "SND")
-        let prefix = String(format: "%02d-", slot)
-        let old = ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? []).filter { $0.hasPrefix(prefix) && $0.uppercased().hasSuffix(".SND") }
-        for o in old { try? fm.trashItem(at: dir.appendingPathComponent(o), resultingItemURL: nil) }
-        guard write(LxrFile.kitData(name: name, params: params), to: dir.appendingPathComponent(file)) else { return }
+        guard let old = clearSlot(dir, file), write(LxrFile.kitData(name: name, params: params), to: dir.appendingPathComponent(file)) else { return }
         reveal(folder: dir, file: file)
         js("lxrToast", ["text": "Saved \(bank)/\(file)" + (old.isEmpty ? "" : " (replaced \(old.joined(separator: ", ")), now in the Trash)")])
+    }
+
+    // One kit per slot: move every file already in the slot of `file` (NN-*.SND, iCloud placeholders too) to the Trash.
+    // Returns their names, or nil (after an alert) if one can't be moved, so the caller doesn't write a second kit there.
+    func clearSlot(_ dir: URL, _ file: String) -> [String]? {
+        guard file.range(of: #"^\d\d-"#, options: .regularExpression) != nil else { return [] }
+        let prefix = String(file.prefix(3)), fm = FileManager.default
+        let names = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
+        let inSlot = names.filter { n in
+            let u = n.uppercased()
+            return (n.hasPrefix(prefix) && u.hasSuffix(".SND")) || (n.hasPrefix("." + prefix) && u.hasSuffix(".SND.ICLOUD"))
+        }
+        for n in inSlot {
+            do { try fm.trashItem(at: dir.appendingPathComponent(n), resultingItemURL: nil) }
+            catch { alert("Didn't save: slot \(prefix.dropLast()) is taken", "Couldn't move \(n) to the Trash: \(error.localizedDescription)"); return nil }
+        }
+        return inSlot
     }
 
     func renameBank(_ d: [String: Any]) {
@@ -229,6 +242,7 @@ extension App {
             var stem = url.deletingPathExtension().lastPathComponent
             if let r = stem.range(of: #"^\d\d-"#, options: .regularExpression) { stem.removeSubrange(r) }
             let dest = url.pathExtension.isEmpty ? url.appendingPathExtension("SND") : url
+            guard self.clearSlot(dest.deletingLastPathComponent(), dest.lastPathComponent) != nil else { return }
             if self.write(LxrFile.kitData(name: stem, params: morphed ? self.heardParams() : k.params), to: dest) {
                 self.reveal(folder: dest.deletingLastPathComponent(), file: dest.lastPathComponent)
                 self.js("lxrToast", ["text": "Saved \(dest.deletingLastPathComponent().lastPathComponent)/\(dest.lastPathComponent)"])
