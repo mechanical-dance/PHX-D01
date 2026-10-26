@@ -21,6 +21,12 @@ function sendPattern() {
   post({ cmd: 'savePatterns', json: JSON.stringify({ patterns: seq.patterns, slot: seq.slot, bpm: seq.bpm, swing: seq.swing }) });
 }
 function sendTempo() { post({ cmd: 'tempo', bpm: seq.bpm, swing: seq.swing }); }
+// A project replaces every slot, and the tempo.
+window.lxrProject = d => {
+  seq.patterns = Array.from({ length: SLOTS.length }, (_, i) => d.patterns?.[i] ?? emptyPattern());
+  Object.assign(seq, { slot: d.slot ?? 0, bpm: d.bpm ?? seq.bpm, swing: d.swing ?? seq.swing });
+  sendPattern(); sendTempo(); drawSeq();
+};
 window.lxrImportPatterns = d => {
   d.patterns.forEach((p, i) => {
     const slot = seq.slot + i;

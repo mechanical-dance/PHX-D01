@@ -7,6 +7,7 @@ struct Kit { var name: String; var file: String; let bank: String; var params: [
 
 // Every bank ends with 5 empty INIT slots to save over.
 let initPadding = 5
+let bankSlots = 128   // the module holds kits 0-127 in one folder
 let userRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents/PHX-D01")
 let initParams: [UInt8] = {
     var p = [UInt8](repeating: 0, count: Int(LXR_KIT_PARAMS)), n = [CChar](repeating: 0, count: 9)
@@ -101,6 +102,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "saveMorph": saveKitAs(morphed: true)
         case "importKits": importKits()
         case "newBank": newUserBank()
+        case "saveProject": saveProject(d)
+        case "openProject": openProject()
         case "wave": setWave(voice: Int(int("voice")), value: Int(int("value")))
         case "exportPatterns": exportPatterns(d)
         case "importPatterns": importPatterns()
@@ -154,7 +157,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         // empty INIT slots after the last kit, numbered on from the highest NN- prefix
         let next = (kits.compactMap { Int($0.file.prefix(2)) }.max() ?? -1) + 1
         let trailing = kits.reversed().prefix { $0.name.uppercased().hasPrefix("INIT") }.count
-        for n in next..<(next + max(0, initPadding - trailing)) {
+        for n in next..<min(bankSlots, next + max(0, initPadding - trailing)) {
             kits.append(Kit(name: "INIT", file: String(format: "%02d-INIT.SND", n), bank: url.lastPathComponent, params: initParams, dir: url, virtual: true))
         }
         return kits
@@ -299,7 +302,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         menu("PHX-D01", [item("Settings…", ",", .command, page("phx.prefs()")), .separator(),
                          NSMenuItem(title: "Hide PHX-D01", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"),
                          NSMenuItem(title: "Quit PHX-D01", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")])
-        menu("File", [item("Open Kit Folder…", "o") { [weak self] in self?.chooseFolder() },
+        menu("File", [item("Open Project…", "o", [.command, .option]) { [weak self] in self?.openProject() },
+                      item("Save Project…", "s", [.command, .option, .shift], page("phx.saveProject()")),
+                      .separator(),
+                      item("Open Kit Folder…", "o") { [weak self] in self?.chooseFolder() },
                       item("Import Kits…", "o", [.command, .shift]) { [weak self] in self?.importKits() },
                       item("New User Bank…", "n", [.command, .shift]) { [weak self] in self?.newUserBank() },
                       item("Import Patterns…", "i") { [weak self] in self?.importPatterns() },

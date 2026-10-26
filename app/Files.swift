@@ -347,3 +347,72 @@ extension App {
         web.evaluateJavaScript("\(fn)(\(str))")
     }
 }
+
+// ---------- projects: everything you're working on in one folder (a PHX-D01 idea; the module has no projects) ----------
+// Flat like the module's card folder: NN-NAME.SND kits (the current bank, edits included), NN-NAME.PAT patterns A-H,
+// plus samples/ and loops/ (copies) and phx.json with the exact patterns, tempo and swing.
+extension App {
+    func saveProject(_ d: [String: Any]) {
+        guard !kits.isEmpty else { return }
+        let pats = patterns(from: d), swing = (d["swing"] as? NSNumber)?.doubleValue ?? 0, ids = bankKits.filter { !kits[$0].virtual || kits[$0].edited }
+        let p = NSSavePanel()
+        let root = userRoot.appendingPathComponent("Projects")
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        p.directoryURL = root
+        p.nameFieldStringValue = "Project \(((try? FileManager.default.contentsOfDirectory(atPath: root.path))?.count ?? 0) + 1)"
+        p.prompt = "Save Project"
+        p.beginSheetModal(for: window) { r in
+            guard r == .OK, let dir = p.url else { return }
+            let fm = FileManager.default
+            do {
+                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                for (n, i) in ids.enumerated() {
+                    try LxrFile.kitData(name: self.kits[i].name, params: self.kits[i].params).write(to: dir.appendingPathComponent(LxrFile.fileName(n, self.kits[i].name, "SND")))
+                }
+                for (n, pat) in pats.enumerated() {
+                    try LxrFile.patternData(pat, swing: swing, kitNr: 0).write(to: dir.appendingPathComponent(LxrFile.fileName(n, pat.name, "PAT")))
+                }
+                for s in self.samples {
+                    let sub = dir.appendingPathComponent(s.loop ? "loops" : "samples")
+                    try fm.createDirectory(at: sub, withIntermediateDirectories: true)
+                    let dest = sub.appendingPathComponent(s.url.lastPathComponent)
+                    if !fm.fileExists(atPath: dest.path) { try fm.copyItem(at: s.url, to: dest) }
+                }
+                try (d["json"] as? String ?? "{}").write(to: dir.appendingPathComponent("phx.json"), atomically: true, encoding: .utf8)
+                self.reveal(folder: dir, file: nil)
+            } catch { self.alert("Couldn't save the project", error.localizedDescription) }
+        }
+    }
+
+    func openProject() {
+        let p = NSOpenPanel()
+        p.canChooseDirectories = true
+        p.canChooseFiles = false
+        p.directoryURL = userRoot.appendingPathComponent("Projects")
+        p.message = "Choose a project folder (or a kit folder from the SD card)"
+        p.beginSheetModal(for: window) { r in
+            guard r == .OK, let dir = p.url else { return }
+            self.loadProject(dir)
+        }
+    }
+
+    func loadProject(_ dir: URL) {
+        let fm = FileManager.default
+        // samples replace the current set
+        let sampleDirs = ["samples", "loops"].map { dir.appendingPathComponent($0) }.filter { fm.fileExists(atPath: $0.path) }
+        samples = []
+        addSamples(sampleDirs)
+        // patterns: the app's own data if present, else the .PAT files
+        if let json = try? String(contentsOf: dir.appendingPathComponent("phx.json"), encoding: .utf8), json.count > 2 {
+            web.evaluateJavaScript("lxrProject(\(json))")
+        } else {
+            let files = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
+                .filter { $0.pathExtension.uppercased() == "PAT" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+            let pats = files.compactMap { (try? Data(contentsOf: $0)).flatMap { LxrFile.readPattern($0, maxSteps: Int(LXA_MAX_STEPS)) } }
+                .filter { $0.0.steps.contains { $0.contains { $0[0] > 0 } } }
+            js("lxrProject", ["patterns": pats.prefix(8).map { ["name": $0.0.name, "len": $0.0.len, "steps": $0.0.steps] }, "swing": pats.first?.1 ?? 0])
+        }
+        reveal(folder: dir, file: nil)
+        select(kits.firstIndex { $0.dir.path == dir.path } ?? kit)
+    }
+}
