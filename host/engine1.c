@@ -123,5 +123,7 @@ void lxr_set_fader(int voice, float gain)
 
 void lxr_note(int voice, uint8_t note, uint8_t velocity)
 {
-	if (voice >= 0 && voice < 7) voiceControl_noteOn((uint8_t)voice, note > 127 ? 127 : note, velocity);
+	/* note 60 = the kit's pitch (engine.h); the LXR-1 plays the kit's pitch at SEQ_DEFAULT_NOTE (63), the LXR-2 at 60 */
+	int n = note + SEQ_DEFAULT_NOTE - 60;
+	if (voice >= 0 && voice < 7) voiceControl_noteOn((uint8_t)voice, (uint8_t)(n < 0 ? 0 : n > 127 ? 127 : n), velocity);
 }
