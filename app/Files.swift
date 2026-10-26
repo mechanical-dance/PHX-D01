@@ -124,7 +124,9 @@ extension App {
         a.beginSheetModal(for: window)
     }
 
+    // Never inside the app bundle: a rebuild or update replaces it and anything saved there is lost.
     func write(_ data: Data, to url: URL) -> Bool {
+        if url.path.hasPrefix(Bundle.main.bundlePath) { alert("Can't save inside the app", "Pick a folder outside PHX-D01.app, e.g. a user bank."); return false }
         do { try data.write(to: url); return true } catch { alert("Couldn't save \(url.lastPathComponent)", error.localizedDescription); return false }
     }
 
@@ -143,6 +145,7 @@ extension App {
         if k.dir.path.hasPrefix(Bundle.main.bundlePath) { saveKitAs(morphed: false); return }
         if write(LxrFile.kitData(name: k.name, params: k.params), to: k.dir.appendingPathComponent(k.file)) {
             reveal(folder: k.dir, file: k.file)
+            js("lxrToast", ["text": "Saved \(k.bank)/\(k.file)"])
         }
     }
 
@@ -160,7 +163,7 @@ extension App {
         a.messageText = "New user bank"
         a.informativeText = "A folder in ~/Documents/PHX-D01/Banks. It starts with 5 INIT kits to save over."
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
-        field.stringValue = "User \(userBanks().count + 1)"
+        field.stringValue = "User \(userBanks().filter { $0.lastPathComponent.hasPrefix("User") }.count + 1)"
         a.accessoryView = field
         a.addButton(withTitle: "Create"); a.addButton(withTitle: "Cancel")
         a.beginSheetModal(for: window) { r in
@@ -177,9 +180,14 @@ extension App {
         guard !kits.isEmpty else { return }
         let k = kits[kit]
         let p = NSSavePanel()
-        p.directoryURL = k.dir.path.hasPrefix(Bundle.main.bundlePath) ? userBanks().first : k.dir
+        let dir = k.dir.path.hasPrefix(Bundle.main.bundlePath) ? (userBanks().first ?? userRoot.appendingPathComponent("Banks/User 1")) : k.dir
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        p.directoryURL = dir
         p.allowedContentTypes = []
-        p.nameFieldStringValue = morphed ? LxrFile.fileName(bankKits.count, "M" + k.name, "SND") : LxrFile.fileName(bankKits.count, k.name, "SND")
+        // default to the first free NN- slot in that folder, so the suggested name never replaces a kit
+        let used = Set(((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).compactMap { Int($0.prefix(2)) })
+        let free = (0..<bankSlots).first { !used.contains($0) } ?? bankSlots - 1
+        p.nameFieldStringValue = LxrFile.fileName(free, morphed ? "M" + k.name : k.name, "SND")
         p.message = "The kit's name is the file name without its NN- prefix (8 characters)."
         p.beginSheetModal(for: window) { r in
             guard r == .OK, let url = p.url else { return }
@@ -188,6 +196,7 @@ extension App {
             let dest = url.pathExtension.isEmpty ? url.appendingPathExtension("SND") : url
             if self.write(LxrFile.kitData(name: stem, params: morphed ? self.heardParams() : k.params), to: dest) {
                 self.reveal(folder: dest.deletingLastPathComponent(), file: dest.lastPathComponent)
+                self.js("lxrToast", ["text": "Saved \(dest.deletingLastPathComponent().lastPathComponent)/\(dest.lastPathComponent)"])
             }
         }
     }

@@ -143,3 +143,8 @@ main { flex: 1; min-height: 260px; display: flex; align-items: center; justify-c
 .knob .arc { fill: none; stroke: #ffd36a; stroke-width: 3; stroke-linecap: round; }
 .knob.idle { opacity: .45; }
 .knob { cursor: ns-resize; }
+
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(10px); padding: 6px 12px;
+  background: #1f1b2a; color: #e8e2f5; border: 1px solid #5b4d80; border-radius: 6px; font: 12px ui-monospace, monospace;
+  opacity: 0; transition: opacity .15s, transform .15s; pointer-events: none; z-index: 50; }
+#toast.show { opacity: 1; transform: translateX(-50%); }

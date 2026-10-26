@@ -30,6 +30,14 @@ window.phx = {
   },
 };
 
+// Save confirmations from the host.
+window.lxrToast = ({ text }) => {
+  let t = $('toast');
+  if (!t) { t = h('div', { id: 'toast' }); document.body.append(t); }
+  t.textContent = text; t.classList.add('show');
+  clearTimeout(t.timer); t.timer = setTimeout(() => t.classList.remove('show'), 2500);
+};
+
 window.drawPrefs = () => {
   const d = $('prefs');
   if (!d.open && d.childElementCount) return;

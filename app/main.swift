@@ -126,9 +126,16 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         let args = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
         var paths = UserDefaults.standard.stringArray(forKey: "kitFolders") ?? UserDefaults.standard.string(forKey: "kitFolder").map { [$0] } ?? []
         paths += args.map { ($0 as NSString).expandingTildeInPath }
-        // Erica's factory kits ship inside the app and are always the first bank; then the user banks.
-        if let factory = Bundle.main.resourceURL?.appendingPathComponent("Erica-factory") { folders.append(factory) }
-        folders += userBanks()
+        // Erica's factory kits ship inside the app but are played from a copy in the user banks, so every bank is a
+        // real folder: saves never land in the bundle, which a rebuild or update replaces.
+        let factory = userRoot.appendingPathComponent("Banks/Erica-factory")
+        if !FileManager.default.fileExists(atPath: factory.path), let src = Bundle.main.resourceURL?.appendingPathComponent("Erica-factory") {
+            try? FileManager.default.createDirectory(at: factory.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? FileManager.default.copyItem(at: src, to: factory)
+        }
+        folders.append(factory)
+        folders += userBanks().filter { $0.path != factory.path }
+        paths = paths.filter { !$0.hasPrefix(Bundle.main.bundlePath) }
         for path in paths where FileManager.default.fileExists(atPath: path) && !folders.contains(where: { $0.path == path }) {
             folders.append(URL(fileURLWithPath: path))
         }
