@@ -194,6 +194,15 @@ function drawSide() {
     h('li', { title: s.name }, h('span', { className: 'num', textContent: sampleShort(i) }),
       h('span', { className: 'nm', textContent: s.name }), h('span', { className: 'dim', textContent: (s.loop ? '⟲ ' : '') + s.sec.toFixed(2) + 's' }))));
 
+  const files = state.card || [];
+  const card = files.length ? h('ul', { className: 'card' }, files.map(f =>
+    h('li', { title: f.problem || f.file },
+      h('span', { className: 'nm' + (f.problem ? ' bad' : ''), textContent: `${f.dir}/${f.file}` }),
+      h('span', { className: 'dim', textContent: f.problem ? '' : f.sec.toFixed(2) + 's' }),
+      h('button', { className: 'x', textContent: '✕', title: 'Move to the Trash (it\'s the card\'s copy)', onclick: () => post({ cmd: 'removeCardFile', dir: f.dir, file: f.file }) }),
+      f.problem ? h('span', { className: 'why', textContent: f.problem }) : '')))
+    : h('p', { className: 'dim', textContent: 'No WAVs in samples/ or loops/.' });
+
   side.replaceChildren(
     section('Kit',
       h('p', { className: 'cur', textContent: k ? `${k.bank} / ${k.name}${k.edited ? ' •' : ''}` : 'No kit' }),
@@ -215,12 +224,15 @@ function drawSide() {
     section('Samples',
       h('p', { className: 'dim', textContent: (sampleEngine() ? '' : 'Samples play on the LXR-1 engine only. ')
         + 'Load Samples replaces them with the card\'s samples/, then adds its loops/ (mono 16-bit 44.1 kHz WAV only).' }),
-      list,
+      h('h4', { textContent: 'Loaded' }), samples.length ? list : h('p', { className: 'dim', textContent: 'None.' }),
       report.failed ? h('p', { className: 'warn', textContent: `${report.failed} Failed` }) : '',
-      report.skipped?.length ? h('details', {}, h('summary', { textContent: `${report.skipped.length} skipped` }),
+      report.skipped?.length ? h('details', {}, h('summary', { textContent: 'Not loaded' }),
         h('ul', { className: 'skipped' }, report.skipped.map(([f, why]) => h('li', { textContent: `${f}: ${why}` })))) : '',
-      h('div', { className: 'btns' }, btn('Load samples', 'loadSamples', 'From this project\'s samples/ and loops/ (⇧⌘I)'),
-        btn('From card…', 'loadSamplesFrom', 'Another card folder, e.g. an SD card (⌥⇧⌘I)'))),
+      h('h4', { textContent: 'Card (this project)' }), card,
+      h('div', { className: 'btns' }, btn('Add samples…', 'addSamples', 'Copies WAVs to the card\'s samples/ and loads it'),
+        btn('Add loops…', 'addLoops', 'Copies WAVs to the card\'s loops/ and loads it'),
+        btn('Load samples', 'loadSamples', 'Load: Samples from this project\'s card (⇧⌘I)'),
+        btn('From other card…', 'loadSamplesFrom', 'Load: Samples from another folder, e.g. an SD card (⌥⇧⌘I)'))),
   );
 }
 

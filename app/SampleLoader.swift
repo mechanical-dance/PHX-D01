@@ -41,6 +41,30 @@ enum SampleLoader {
         return stride(from: r.lowerBound, to: r.upperBound, by: 2).map { Int16(bitPattern: UInt16(b[$0]) | UInt16(b[$0 + 1]) << 8) }
     }
 
+    // Why parseWav refuses a file, in words (the firmware just skips it).
+    static func problem(_ file: Data) -> String {
+        let b = [UInt8](file)
+        func id(_ o: Int, _ s: String) -> Bool { o + 4 <= b.count && Array(b[o..<o + 4]) == Array(s.utf8) }
+        func le16(_ o: Int) -> Int { Int(b[o]) | Int(b[o + 1]) << 8 }
+        func le32(_ o: Int) -> Int { le16(o) | le16(o + 2) << 16 }
+        guard id(0, "RIFF"), id(8, "WAVE") else { return "not a WAV file" }
+        var pos = 12
+        while pos + 8 <= b.count {
+            let size = le32(pos + 4), body = pos + 8
+            if id(pos, "fmt "), size >= 16, body + 16 <= b.count {
+                let fmt = le16(body), ch = le16(body + 2), rate = le32(body + 4), bits = le16(body + 14)
+                var why: [String] = []
+                if fmt != 1 { why.append(fmt == 3 ? "32-bit float" : fmt == 0xfffe ? "extensible format" : "not PCM") }
+                if ch != 1 { why.append(ch == 2 ? "stereo" : "\(ch) channels") }
+                if rate != 44100 { why.append("\(rate) Hz") }
+                if bits != 16 && fmt != 3 { why.append("\(bits)-bit") }
+                return why.isEmpty ? "empty or damaged audio data" : why.joined(separator: ", ") + " (needs mono 16-bit 44.1 kHz)"
+            }
+            pos = body + size + (size & 1)
+        }
+        return "no format chunk"
+    }
+
     // filesystem_lfnAppendEntry: the long name as the card stores it, ASCII with anything else as '_'.
     static func lfn(_ name: String) -> [UInt8] {
         Array(name.precomposedStringWithCanonicalMapping.utf16.map { $0 < 0x80 ? UInt8($0) : UInt8(ascii: "_") }.prefix(lfnMax - 1))
@@ -83,7 +107,7 @@ enum SampleLoader {
             let l = lfn(name)
             guard isWavName(l) else { continue }
             guard let pcm = (try? Data(contentsOf: dir.appendingPathComponent(name))).flatMap(parseWav) else {
-                pass.skipped.append((name, notWav)); continue
+                pass.skipped.append((name, (try? Data(contentsOf: dir.appendingPathComponent(name))).map(problem) ?? notWav)); continue
             }
             found.append((name, l, pcm))
         }

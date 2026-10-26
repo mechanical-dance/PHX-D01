@@ -1,6 +1,7 @@
 // Saving and importing in the LXR's own formats (kits .SND, patterns .PAT, banks as SD-card folders) and loading samples (SampleLoader.swift).
 // Layouts follow the LXR-02 firmware's presetManager.c (preset_saveDrumsetSD, preset_writePatternData, PatV03).
 import Cocoa
+import UniformTypeIdentifiers
 
 enum LxrFile {
     static let steps = 64, tracks = 7, bars = 4
@@ -360,12 +361,61 @@ extension App {
         var count: UInt32 = 0, bytes: UInt32 = 0
         lxa_sample_limits(&count, &bytes)
         guard count > 0 else { alert("No sample engine", "The LXR-1 engine (engine-lxr1.dylib) isn't installed."); return }
+        if card == project {   // the project's card always has both folders, so a load replaces the set
+            for d in ["samples", "loops"] { try? FileManager.default.createDirectory(at: project.appendingPathComponent(d), withIntermediateDirectories: true) }
+        }
+        cardList = nil
         let (flash, report) = SampleLoader.load(card: card, current: samples, maxCount: Int(count), romBytes: Int(bytes))
         samples = flash
         sampleReport = report
         saveSampleFlash()
         sendSamples()
         js("lxrToast", ["text": report.failed.map { "\($0) Failed" } ?? "Loaded \(report.samples.installed.count) samples, \(report.loops.installed.count) loops"])
+    }
+
+    // The project folder is the card: its samples/ and loops/ as Load Samples reads them, valid or not.
+    func cardFiles() -> [[String: Any]] {
+        if let cardList { return cardList }
+        let list = ["samples", "loops"].flatMap { sub -> [[String: Any]] in
+            let dir = project.appendingPathComponent(sub)
+            let names = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).filter { SampleLoader.isWavName(SampleLoader.lfn($0)) }
+            return names.sorted { SampleLoader.precedes(SampleLoader.lfn($0), SampleLoader.lfn($1)) }.map { n in
+                let data = try? Data(contentsOf: dir.appendingPathComponent(n)), pcm = data.flatMap(SampleLoader.parseWav)
+                return ["dir": sub, "file": n, "sec": Double(pcm?.count ?? 0) / 44100, "problem": pcm != nil ? "" : data.map(SampleLoader.problem) ?? "unreadable"]
+            }
+        }
+        cardList = list
+        return list
+    }
+
+    // Copies WAVs onto the card (your originals stay where they are), then loads the card.
+    func addToCard(loops: Bool) {
+        let p = NSOpenPanel()
+        p.allowsMultipleSelection = true
+        p.canChooseDirectories = false
+        p.allowedContentTypes = [.wav]
+        p.message = "Copy WAV files to the card's \(loops ? "loops" : "samples") folder"
+        p.beginSheetModal(for: window) { r in
+            guard r == .OK else { return }
+            let fm = FileManager.default, dir = self.project.appendingPathComponent(loops ? "loops" : "samples")
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            var clash: [String] = []
+            for u in p.urls {
+                let dest = dir.appendingPathComponent(u.lastPathComponent)
+                if fm.fileExists(atPath: dest.path) { clash.append(u.lastPathComponent); continue }
+                do { try fm.copyItem(at: u, to: dest) } catch { clash.append(u.lastPathComponent) }
+            }
+            self.loadSamples(from: self.project)
+            if !clash.isEmpty { self.alert("Not copied", "Already on the card or unreadable: " + clash.joined(separator: ", ")) }
+        }
+    }
+
+    // Moves a file on the card to the Trash, then loads the card.
+    func removeFromCard(_ sub: String, _ file: String) {
+        guard ["samples", "loops"].contains(sub), !file.isEmpty, !file.contains("/"), file != ".", file != ".." else { return }
+        do { try FileManager.default.trashItem(at: project.appendingPathComponent(sub).appendingPathComponent(file), resultingItemURL: nil) }
+        catch { alert("Couldn't remove \(file)", error.localizedDescription); return }
+        loadSamples(from: project)
     }
 
     // The sample flash keeps its contents across restarts: count, then per sample loop flag, display name, frames, PCM.
@@ -487,6 +537,7 @@ extension App {
         let old = projectCard.standardizedFileURL.path
         let cur = kits.isEmpty ? nil : (kits[kit].dir.path, kits[kit].file)
         project = dir
+        cardList = nil
         UserDefaults.standard.set(dir.path, forKey: "project")
         window.title = "PHX-D01 — \(dir.lastPathComponent)"
         folders.removeAll { $0.standardizedFileURL.path == old }

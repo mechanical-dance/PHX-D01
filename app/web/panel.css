@@ -167,3 +167,9 @@ main { flex: 1; min-height: 260px; display: flex; align-items: center; justify-c
 #saveas input.kitname, #loadkit input.kitname { font-family: ui-monospace, monospace; text-transform: none; }
 
 #loadkit select.kitlist { width: 100%; font-family: ui-monospace, Menlo, monospace; }
+#side .card { list-style: none; margin: 0 0 6px; padding: 0; max-height: 260px; overflow-y: auto; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+#side .card li { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; padding: 2px 0; }
+#side .card .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#side .card .bad { color: #f0a0b0; text-decoration: line-through; }
+#side .card .why { grid-column: 1 / -1; color: #f0a0b0; font-size: 11px; }
+#side .card .x { padding: 0 6px; min-width: 0; }

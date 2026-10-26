@@ -27,6 +27,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var folders: [URL] = []   // kit banks, in the order they were added
     var samples: [FlashSample] = []   // the sample flash (SampleLoader.swift)
     var sampleReport: SampleLoader.Report?   // what the last Load Samples did
+    var cardList: [[String: Any]]?   // cache of cardFiles(), dropped on every load and project switch
 
     func applicationDidFinishLaunching(_ note: Notification) {
         buildMenu()
@@ -119,6 +120,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "saveBank": saveBank(d)
         case "loadSamples": loadSamples(from: project)
         case "loadSamplesFrom": loadSamples()
+        case "addSamples": addToCard(loops: false)
+        case "addLoops": addToCard(loops: true)
+        case "removeCardFile": removeFromCard(d["dir"] as? String ?? "", d["file"] as? String ?? "")
         case "param":
             let i = Int(int("i"))
             guard !kits.isEmpty, i >= 0, i < kitBytes else { break }
@@ -268,6 +272,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
                                 "sampleEngines": (0..<lxa_engine_count()).map { lxa_engine_has_samples($0) != 0 },
                                 "samples": samples.map { ["name": $0.display.map { $0 == 0 ? "…" : String(UnicodeScalar($0)) }.joined(),
                                                           "loop": $0.loop, "sec": Double($0.pcm.count) / 44100] },
+                                "card": cardFiles(),
                                 "sampleReport": sampleReport.map { r in
                                     ["failed": r.failed ?? "", "skipped": (r.samples.skipped.map { ["samples/" + $0.0, $0.1] } + r.loops.skipped.map { ["loops/" + $0.0, $0.1] })]
                                 } ?? [:]]
