@@ -28,10 +28,35 @@ void menu_notifyExternalParamChanged(uint16_t paramNr) { (void)paramNr; }
 void menu_setNumSamples(uint8_t num) { (void)num; }
 void menu_setShownPattern(uint8_t patternNr) { (void)patternNr; }
 void preset_morph(uint8_t morph) { (void)morph; }
-uint32_t sampleMemory_getGeneration(void) { return 0; }
-uint8_t sampleMemory_getNumSamples(void) { return 0; }
-SampleInfo sampleMemory_getSampleInfo(uint8_t index) { (void)index; SampleInfo s; memset(&s, 0, sizeof s); return s; }
-uint8_t sampleMemory_isLooped(uint8_t index) { (void)index; return 0; }
+/* User samples live in RAM instead of flash. SampleInfo.offset is a 32-bit field, so it holds an index into
+   sample_pcm rather than an address (patches-lxr1/03 makes the oscillator add the base). */
+static const int16_t *sample_pcm;
+static SampleInfo sample_info[SAMPLE_MAX_COUNT];
+static uint8_t sample_loop[SAMPLE_MAX_COUNT], sample_count;
+static uint32_t sample_generation;
+const int16_t *lxr1_sample_data(uint32_t offset) { static const int16_t silence[4]; return sample_pcm ? sample_pcm + offset : silence; }
+uint32_t sampleMemory_getGeneration(void) { return sample_generation; }
+uint8_t sampleMemory_getNumSamples(void) { return sample_count; }
+SampleInfo sampleMemory_getSampleInfo(uint8_t index)
+{
+	if (index < sample_count) return sample_info[index];
+	SampleInfo s; memset(&s, 0, sizeof s); return s;
+}
+uint8_t sampleMemory_isLooped(uint8_t index) { return index < sample_count && sample_loop[index]; }
+/* Called on the audio thread between blocks. pcm must stay valid until the next call. */
+void lxr1_set_samples(const int16_t *pcm, const uint32_t *offsets, const uint32_t *sizes, const uint8_t *loops, int count)
+{
+	if (count > (int)SAMPLE_MAX_COUNT) count = SAMPLE_MAX_COUNT;
+	sample_pcm = pcm;
+	for (int i = 0; i < count; i++) {
+		memset(&sample_info[i], 0, sizeof sample_info[i]);
+		sample_info[i].offset = offsets[i];
+		sample_info[i].size = sizes[i];
+		sample_loop[i] = loops[i];
+	}
+	sample_count = (uint8_t)count;
+	if (++sample_generation == 0) sample_generation = 1;
+}
 uint32_t timebase_tim2Delta(uint32_t newer, uint32_t older) { return newer - older; }
 uint32_t timebase_tim2Now(void) { return 0; }
 void trigger_allOff() {}

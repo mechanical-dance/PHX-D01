@@ -1,0 +1,12 @@
+--- a/Core/DSPAudio/Oscillator.c	2026-10-25 20:28:53
++++ b/Core/DSPAudio/Oscillator.c	2026-10-25 20:28:59
+@@ -128,7 +128,8 @@
+ 	osc->sampleCacheIndex = sampleIndex;
+ 	osc->sampleCacheGeneration = generation;
+ 	osc->sampleCacheSize = info.size;
+-	osc->sampleCacheData = (const int16_t*)((const int8_t*)info.offset);
++	extern const int16_t *lxr1_sample_data(uint32_t offset);   /* host: offset indexes RAM, not flash */
++	osc->sampleCacheData = lxr1_sample_data(info.offset);
+ 	osc->sampleCacheLooped = sampleMemory_isLooped(sampleIndex);
+ }
+ //-----------------------------------------------------------

@@ -17,6 +17,7 @@ typedef struct {
 	void (*note)(int, uint8_t, uint8_t);
 	void (*fader)(int, float);
 	void (*render)(int16_t[LXR_JACKS][LXR_BLOCK]);
+	void (*samples)(const int16_t *, const uint32_t *, const uint32_t *, const uint8_t *, int);   /* optional */
 } Engine;
 
 #define MAX_ENGINES 4
@@ -26,10 +27,11 @@ static Engine engines[MAX_ENGINES];
 static int n_engines;
 
 /* Commands to the audio thread: many producers (UI, MIDI) behind a lock, one consumer that never locks. */
-enum { CMD_HIT, CMD_LOAD, CMD_ENGINE, CMD_SOLO, CMD_FADER, CMD_HW, CMD_PATTERN, CMD_TRANSPORT, CMD_TEMPO };
+enum { CMD_HIT, CMD_LOAD, CMD_ENGINE, CMD_SOLO, CMD_FADER, CMD_HW, CMD_PATTERN, CMD_TRANSPORT, CMD_TEMPO, CMD_SAMPLES };
 typedef struct {
 	int type, arg, vel, note, from_midi;
 	float value, value2;
+	const LxaSamples *samples;
 	union { uint8_t params[LXR_KIT_PARAMS]; LxaStep steps[LXA_TRACKS][LXA_MAX_STEPS]; } data;
 } Cmd;
 #define RING 128
@@ -128,6 +130,10 @@ static void handle(Cmd *c)
 		else atomic_store(&playhead, -1);
 		break;
 	case CMD_TEMPO: bpm = c->value; swing = c->value2; break;
+	case CMD_SAMPLES:
+		for (int e = 0; e < n_engines; e++)
+			if (engines[e].samples) engines[e].samples(c->samples->pcm, c->samples->offsets, c->samples->sizes, c->samples->loops, c->samples->count);
+		break;
 	}
 }
 
@@ -163,7 +169,7 @@ static int load_engine(const char *path)
 	void *h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
 	if (!h) return 0;
 	Engine e = { dlsym(h, "lxr_engine_name"), dlsym(h, "lxr_init"), dlsym(h, "lxr_load_params"), dlsym(h, "lxr_hit"),
-	             dlsym(h, "lxr_note"), dlsym(h, "lxr_set_fader"), dlsym(h, "lxr_render") };
+	             dlsym(h, "lxr_note"), dlsym(h, "lxr_set_fader"), dlsym(h, "lxr_render"), dlsym(h, "lxr_set_samples") };
 	if (!e.name || !e.init || !e.load || !e.hit || !e.note || !e.fader || !e.render) { fprintf(stderr, "%s: missing symbols\n", path); return 0; }
 	e.init();
 	engines[n_engines++] = e;
@@ -293,6 +299,10 @@ void lxa_load(const uint8_t params[LXR_KIT_PARAMS])
 	memcpy(c.data.params, params, LXR_KIT_PARAMS);
 	push(&c);
 }
+
+/* The set must stay alive while any engine uses it; the app keeps every set it sends (they are small and rare). */
+void lxa_samples(const LxaSamples *set) { Cmd c = { .type = CMD_SAMPLES, .samples = set }; push(&c); }
+int lxa_engine_has_samples(int engine) { return engine >= 0 && engine < n_engines && engines[engine].samples != NULL; }
 
 static void simple(int type, int arg) { Cmd c = { .type = type, .arg = arg }; push(&c); }
 void lxa_engine(int engine) { if (engine >= 0 && engine < n_engines) simple(CMD_ENGINE, engine); }

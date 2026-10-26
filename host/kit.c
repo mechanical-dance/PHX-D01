@@ -33,3 +33,5 @@ void lxr_morph_kit(const uint8_t a[LXR_KIT_PARAMS], const uint8_t b[LXR_KIT_PARA
 		out[i] = keep ? a[i] : interpolate(a[i], b[i], amount);
 	}
 }
+
+const int lxr_osc_wave_param[6] = {PAR_OSC_WAVE_DRUM1, PAR_OSC_WAVE_DRUM2, PAR_OSC_WAVE_DRUM3, PAR_OSC_WAVE_SNARE, PAR_WAVE1_CYM, PAR_WAVE1_HH};

@@ -84,6 +84,12 @@ void lxr_hit(int voice, uint8_t velocity)
 	if (voice >= 0 && voice < 7) voiceControl_noteOn((uint8_t)voice, SEQ_DEFAULT_NOTE, velocity);
 }
 
+void lxr1_set_samples(const int16_t *pcm, const uint32_t *offsets, const uint32_t *sizes, const uint8_t *loops, int count);
+void lxr_set_samples(const int16_t *pcm, const uint32_t *offsets, const uint32_t *sizes, const uint8_t *loops, int count)
+{
+	lxr1_set_samples(pcm, offsets, sizes, loops, count);
+}
+
 static int16_t sat(int32_t v) { return v > 32767 ? 32767 : v < -32768 ? -32768 : (int16_t)v; }
 
 void lxr_render(int16_t jack[LXR_JACKS][LXR_BLOCK])

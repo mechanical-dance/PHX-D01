@@ -17,6 +17,10 @@ LXR_API void lxr_hit(int voice, uint8_t velocity);          /* trigger 0-6: voic
 LXR_API void lxr_note(int voice, uint8_t note, uint8_t velocity); /* as lxr_hit, pitched: note 60 = the kit's own pitch, +-1 = a semitone */
 LXR_API void lxr_set_fader(int voice, float gain);           /* voice 0-5 fader gain 0-1, after the fader curve; 1 = no fader */
 LXR_API void lxr_render(int16_t jack[LXR_JACKS][LXR_BLOCK]); /* one mono buffer per output jack */
+/* Optional (LXR-1 only): user samples, see LxaSamples in audio.h. */
+LXR_API void lxr_set_samples(const int16_t *pcm, const uint32_t *offsets, const uint32_t *sizes, const uint8_t *loops, int count);
+/* LXR-2 kit indexes of the six main oscillator waveforms (drum1-3, snare, cymbal, hihat). */
+extern const int lxr_osc_wave_param[6];
 
 int lxr_read_kit(const char *path, uint8_t params[LXR_KIT_PARAMS], char name[9]);   /* 0 on success; host side */
 /* The firmware's kit morph (preset_morph_tick): amount 0-255 from kit a to kit b. Routing and mod targets stay on a. */

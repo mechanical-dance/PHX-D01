@@ -24,6 +24,12 @@ void lxa_note(int trigger, int note, int velocity);   /* pitched hit, also sent 
 void lxa_fader(int fader, float position); /* 0-5 voice faders, 6 master; position 0-1 as the fader sits */
 void lxa_solo(int jack);                   /* 0 = all jacks mixed to the speakers, 1-4 = that jack alone */
 
+/* User samples (LXR02Open engine only): mono 16-bit 44.1 kHz, one buffer; sample i starts at offsets[i] and is
+   sizes[i] frames long. Sample i is oscillator waveform 6+i on the LXR-1 engine. */
+typedef struct { const int16_t *pcm; const uint32_t *offsets, *sizes; const uint8_t *loops; int count; } LxaSamples;
+void lxa_samples(const LxaSamples *set);
+int lxa_engine_has_samples(int engine);
+
 /* Sequencer. */
 void lxa_pattern(const LxaStep steps[LXA_TRACKS][LXA_MAX_STEPS], int length);
 void lxa_transport(int playing);
