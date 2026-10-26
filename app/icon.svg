@@ -41,11 +41,6 @@
     <path d="M436 346 H588" stroke-width="28"/>
     <path d="M330 790 L 410 640" stroke-width="12" opacity=".4"/>
   </g>
-  <!-- masking-tape label -->
-  <g transform="translate(0 92) rotate(-4 512 560)">
-    <rect x="410" y="532" width="204" height="58" fill="#e8d9a8" opacity=".95"/>
-    <text x="512" y="572" text-anchor="middle" font-family="Menlo, monospace" font-size="34" font-weight="700" fill="#2b1d10">PHX-D01</text>
-  </g>
 
   <!-- motion lines: drifting in from the top right -->
   <g fill="none" stroke="#ffd36a" stroke-width="6" stroke-linecap="round" opacity=".5">

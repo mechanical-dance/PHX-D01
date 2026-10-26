@@ -1,39 +1,28 @@
 # Panels
 
-Switch panels with the *LXR-02 desktop* / *LXR-Drum module* buttons. Both drive the same engines; the panel also sets the
-hardware model (the module's kit format, mod matrix and its LFO/velocity rules; see [Module](module.md)).
-Hover any control to see what it does. Controls the app doesn't model say so.
+Switch between the LXR-02 desktop and LXR-Drum module panels with the buttons at the top. The panel also selects the
+hardware behaviour (see [Module](module.md)). Every control has a tooltip.
 
-## Shared
-- **Knobs** (4, under the display): drag or scroll to edit the 4 values the display shows. Double-click resets the value.
-- **DATA encoder**:
-  - In load mode, turning steps through kits; pushing opens the load dialog (bank and kit list).
-  - In save mode, pushing opens the save dialog.
-  - In edit mode, turning picks one of the 4 parameters (it shows in capitals) and pushing opens its detail view
-    (long name and value). Push again to leave.
-- **Triggers**: keys 1-7 (7 = open hat). Shift plays an accented hit.
-- **Mutes**: SHIFT (latched) plus a voice button, or ⌥1-7. Mutes silence the sequencer and MIDI in; clicking still plays.
-- Page markers `>` `*` `<` in the display's top-right mean there are more pages.
+## Common controls
+- **Knobs**: drag or scroll to edit; double-click to reset.
+- **DATA encoder**: turn to browse kits or select a parameter; push to open the load, save or detail view.
+- **Triggers**: keys 1–7. Shift for an accented hit.
+- **Mutes**: SHIFT + voice button, or ⌥1–7.
+- **Page markers** `>` `*` `<`: more pages available.
 
 ## Desktop (LXR-02)
-- **Voice buttons** play and select a voice. **OSC … MIX** show that voice's pages; press again for the second row.
-- **LOAD / SAVE**: load or save mode. SAVE again saves (⌘S).
-- **PERF**: bpm, morph, sample rate and shuffle on the knobs.
-- **SHIFT + RELOAD** (step 13) reverts the kit to its saved state. **SHIFT + COPY** (CLEAR), then **COPY**,
-  resets the kit to INIT after a "Clear kit?" prompt.
-- **Faders**: voice volumes, using the firmware's curve.
-- **Output jacks**: click OUT 2 or MAIN OUT L/R to hear only that jack.
-- The step buttons run the app's own sequencer, which isn't the LXR-02's (see the README).
+- **Voice buttons**: trigger and select a voice. **OSC … MIX**: parameter pages; press again for the second row.
+- **LOAD / SAVE**: load or save mode; SAVE again saves (⌘S).
+- **PERF**: tempo, morph, sample rate, shuffle.
+- **SHIFT + RELOAD**: revert the kit. **SHIFT + COPY**, then **COPY**: clear the kit.
+- **Faders**: voice volumes. **Output jacks**: click to solo.
+- The step buttons drive the app's own sequencer.
 
 ## Module (LXR-Drum)
-- **EDIT**: the select buttons pick the page. **DRUM** plus a select button picks the voice.
-- **PERFORM**: the select buttons play the voices. The knobs are `mrp` (morph amount), `mtg` (morph target kit)
-  and `sr` (global sample rate).
-- **MOD**: the voice's mod matrix. Press again for slots a, b, c. **SHIFT + MOD** (or shift-click): its LFO. **FX**: the kit's effect.
-- **SAVE/LOAD**: load mode. With SHIFT: save mode.
-- **Trigger jacks**: click to fire; shift-click for an accented hit. **Accent jacks**: click to hold the gate high.
-- **CV jacks**: drag or scroll for -5 to +5 V (0.1 V steps; shift: a semitone). Double-click for 0 V.
-- **OUT1-4**: click to hear only that jack.
-
-The module's pages follow its firmware: the MOD page shows dec/slp/mod/vol, the LFO page frq/ofs/wav/rtg, and MIX has no
-len/ch/nte.
+- **EDIT**: select buttons choose the page; **DRUM** + select button chooses the voice.
+- **PERFORM**: select buttons trigger voices; knobs set morph amount, morph target and sample rate.
+- **MOD**: mod matrix (press again for slots a, b, c). **SHIFT + MOD**: LFO. **FX**: effect.
+- **SAVE/LOAD**: load mode; with SHIFT, save mode.
+- **Trigger and accent jacks**: click to trigger or hold the accent.
+- **CV jacks**: drag or scroll for −5 to +5 V; Shift for semitones; double-click for 0 V.
+- **OUT1–4**: click to solo.

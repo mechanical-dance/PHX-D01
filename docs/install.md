@@ -1,37 +1,34 @@
 # Install
 
-## Prerequisites
-- macOS on Apple Silicon, with the Xcode command-line tools (`xcode-select --install`), which provide `clang`, `swiftc` and `make`.
-- **The Erica Synths LXR-02 firmware** (required). The build compiles it; it isn't part of this repo.
+## Requirements
+- macOS on Apple Silicon, with Xcode command-line tools (`xcode-select --install`).
+- **Erica Synths LXR-02 firmware** (required): compiled into the sound engine.
   ```sh
   git clone https://github.com/erica-synths/lxr-desktop-app ~/code/vendor/lxr-02/lxr-desktop-app
   ```
-- **Brendan Clarke's LXR02Open** (optional). It adds the original LXR (LXR-1) engine. Its licence is non-commercial,
-  so it isn't part of this repo either. Without it the app has only the LXR-02 engine.
+- **LXR02Open by Brendan Clarke** (optional): adds the Sonic Potions LXR-1 engine. Non-commercial licence, so not included.
   ```sh
   git clone https://github.com/brendanclarke/LXR02Open ~/code/vendor/lxr-02/LXR02Open
   ```
-Clones elsewhere work too: `make VENDOR=/path/to/lxr-desktop-app VENDOR1=/path/to/LXR02Open`.
+
+Other locations: `make VENDOR=/path/to/lxr-desktop-app VENDOR1=/path/to/LXR02Open`.
 
 ## Build
 ```sh
-make app                # build/PHX-D01.app
-make                    # the app plus build/lxr-play and build/lxr-render
+make app    # build/PHX-D01.app
+make        # app, lxr-play and lxr-render
 ```
-The build copies the firmware to `build/src` and applies `patches/`. It never modifies your clones.
 
 ## Kits
-The app comes with only an INIT kit. Bring your own:
-- **The Erica Synths factory kits.** On the [LXR-02 page](https://www.ericasynths.lv/shop/drum-machines/drum-synthesizer-lxr-02),
-  under Downloads, get *Factory SD content* and *Sound Pack 1 (Hrtl DLC)*. Unzip either and open its folder
-  as a bank (File ▸ Open Kit Folder…), or put the factory kits in `~/Documents/PHX-D01/Banks/Erica-factory` so they always show as a bank.
-- **Your own card.** Copy your LXR-02 or LXR-Drum SD card to the Mac and open it as a project (File ▸ Open Project…).
-  Work on a copy, not the card itself.
+Only an INIT kit is included.
+- **Erica Synths factory kits**: download *Factory SD content* and *Sound Pack 1 (Hrtl DLC)* from the
+  [LXR-02 product page](https://www.ericasynths.lv/shop/drum-machines/drum-synthesizer-lxr-02). Open the folder with
+  File ▸ Open Kit Folder…, or place the kits in `~/Documents/PHX-D01/Banks/Erica-factory` to load them at launch.
+- **SD card**: open a copy of the card with File ▸ Open Project….
 
-The app keeps its files in `~/Documents/PHX-D01` (`Banks/`, `Projects/`).
-
-## Command line
+## Command-line tools
 ```sh
-./build/lxr-play path/to/kits    # 1-7 trigger (7 = open hat), space all, ←/→ kit, e engine, m desktop/module, o jack solo, q quit
-./build/lxr-render KIT.SND out/kit.wav    # renders each of the 6 voices
+./build/lxr-play path/to/kits             # play kits live
+./build/lxr-render KIT.SND out/kit.wav    # render each voice to WAV
 ```
+`lxr-play` keys: 1–7 voices, space all, ←/→ kit, `e` engine, `m` desktop/module, `o` solo output, `q` quit.

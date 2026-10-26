@@ -1,26 +1,20 @@
 # Kits, cards and projects
 
 ## Banks
-Any folder of `.SND` files is a bank (File ▸ Open Kit Folder…). Kits are listed by the slot in their file name (`00-NAME.SND` …
-`127-NAME.SND`; from 100 on the module writes `NNN-` and 4 letters). Empty slots up to 127 show as INIT.
-Unsaved edits are kept per kit until you save or reload.
+Any folder of `.SND` files opens as a bank (File ▸ Open Kit Folder…). Kits are ordered by the slot number in the
+file name (`00` to `127`); empty slots show as INIT.
 
 ## SD cards
-Both machines keep a project in `PROJ00` (with `GLO.CFG` and `PRJ.NFO`). The app tells the layouts apart:
-- **Module**: 309-byte kits (with the mod matrix), or kits in slots 64 and up.
-- **Desktop**: `.PAT` pattern files next to the kits.
+Both machines store kits in `PROJ00`. The layout is detected automatically:
+- **Module**: 309-byte kits, or kits in slots 64 and above.
+- **Desktop**: `.PAT` pattern files present.
 
-When you save a card, it's written in the layout of the current panel. Kits without matrix data are saved as 255-byte
-files that both machines read.
+Cards are saved in the current panel's layout.
 
 ## Projects
-A project is a folder in `~/Documents/PHX-D01/Projects/<name>/`:
-- `PROJ00/`: the kits, laid out like a card, ready to copy back to an SD card.
-- Samples: the user samples the kits play (File ▸ Import Samples…).
-- `phx.json`: the app's own state: the 8 sequencer patterns, tempo, swing and panel layout.
-
-File ▸ Open Project… accepts the project folder or its `PROJ00`.
+A project (`~/Documents/PHX-D01/Projects/<name>/`) holds the kits in SD-card layout (`PROJ00/`), their samples, and
+the app's patterns and settings (`phx.json`). Open it with File ▸ Open Project….
 
 ## Samples
-The LXR-02 holds up to 120 user samples in 1.5 MB of flash, about 17 s of 16-bit mono at 44.1 kHz.
-The app enforces the 120-sample limit, but not the 1.5 MB, so check the total size before you copy samples to the hardware.
+The LXR-02 holds up to 120 samples in 1.5 MB (about 17 s at 44.1 kHz, 16-bit mono). The app enforces the count,
+not the size.
