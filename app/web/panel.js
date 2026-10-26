@@ -141,7 +141,9 @@ function drawKnobs() {
   (ui.knobs || []).forEach((kn, k) => {
     if (!kn) return;
     const info = knobInfo(k);
-    const a = info ? -ARC + 2 * ARC * (info.v - info.lo) / Math.max(1, info.hi - info.lo) : kn.angle;
+    // clamped: a value outside the known range (e.g. a sample waveform on the LXR-2 engine) must not draw past the track,
+    // or the arc's large-arc flag flips and SVG draws the circle around another centre
+    const a = info ? Math.min(ARC, Math.max(-ARC, -ARC + 2 * ARC * (info.v - info.lo) / Math.max(1, info.hi - info.lo))) : kn.angle;
     kn.mark.setAttribute('transform', `rotate(${a} ${kn.x} ${kn.y})`);
     kn.arc.setAttribute('d', info ? arcPath(kn.x, kn.y, kn.r + 7, -ARC, Math.max(a, -ARC + 0.5)) : '');
     kn.g.classList.toggle('idle', state.mode === 'edit' && !info);
