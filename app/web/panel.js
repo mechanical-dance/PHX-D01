@@ -539,12 +539,15 @@ function initToolbar() {
   const showSeq = on => {
     document.getElementById('seq').hidden = !on;
     document.getElementById('seqbtn').setAttribute('aria-pressed', String(on));
+    const fold = document.getElementById('seqfold');
+    fold.title = fold.ariaLabel = on ? 'Collapse the sequencer' : 'Expand the sequencer';
     try { localStorage.setItem('seqShown', on ? '1' : '0'); } catch (e) { /* per-viewer nicety only */ }
   };
   let shown = true;
   try { shown = localStorage.getItem('seqShown') !== '0'; } catch (e) { /* default: shown */ }
   showSeq(shown);
   document.getElementById('seqbtn').onclick = () => showSeq(document.getElementById('seq').hidden);
+  document.getElementById('seqfold').onclick = () => showSeq(document.getElementById('seq').hidden);
 }
 document.addEventListener('keydown', e => {
   if (/SELECT|INPUT/.test(e.target.tagName) || e.metaKey || e.ctrlKey) return;

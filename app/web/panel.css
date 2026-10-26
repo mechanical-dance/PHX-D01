@@ -104,6 +104,14 @@ main { flex: 1; min-height: 260px; display: flex; align-items: center; justify-c
 .morph select { max-width: 170px; }
 #seqbtn[aria-pressed="true"] { background: #2b2d30; }
 #seq[hidden] { display: none; }
+#seq { padding-right: 38px; }
+#seqbox { position: relative; }
+#seqfold { position: absolute; top: 9px; right: 10px; width: 20px; height: 20px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink-dim); }
+#seqfold::before { content: ""; position: absolute; left: 5px; top: 7px; border: 5px solid transparent; border-top: 6px solid currentColor; border-bottom: 0; }
+#seqfold:hover { color: var(--ink); }
+#seqbox:has(#seq[hidden]) #seqfold { top: auto; bottom: 8px; }
+#seqbox:has(#seq[hidden]) #seqfold::before { top: 6px; border-top: 0; border-bottom: 6px solid currentColor; }
+body:has(#side:not([hidden])) #seqbox:has(#seq[hidden]) #seqfold { right: 280px; }   /* stay in the panel area, left of the sidebar */
 
 /* ---------- sidebar and settings ---------- */
 #work { flex: 1; display: flex; min-height: 260px; }
