@@ -1,82 +1,45 @@
 <p align="center"><img src="docs/logo.png" width="160" alt="PHX-D01 logo"></p>
 
-# PHX-D01 (lxr-audition)
+# PHX-D01
 
-Audition LXR-02 kits (`.SND`) on the Mac with the LXR's own sound engine, compiled natively.
-No SD-card swapping.
+Audition LXR kits (`.SND`) on the Mac with the LXR's own sound engine, compiled natively. No SD-card swapping.
 
-The engine is Erica Synths' open-source LXR firmware (`lxr-desktop-app`, GPL-3.0), cloned at
-`~/code/vendor/lxr-02/lxr-desktop-app`. The build copies it to `build/src`, applies `patches/`,
-and links it with `host/`. The vendor tree is never modified.
+- **The real engine.** Erica Synths' open-source LXR-02 firmware, built for macOS. An optional second engine plays
+  the original Sonic Potions LXR (from Brendan Clarke's LXR02Open).
+- **Two front panels.** The LXR-02 desktop and the LXR-Drum Eurorack module, with the hardware's menu pages,
+  knobs, encoder and buttons.
+- **Module mod matrix.** The module's 18 matrix slots load from its kit files. CV and accent jacks are playable sources,
+  including v/o at 1 V/oct.
+- **Morph.** Morph toward a target kit, from a slider, the perform knobs, or a matrix slot.
+- **Kit banks and SD cards.** Open a folder as a bank, or load and save whole SD cards in the desktop or the module layout.
+- **Projects.** Kits, samples and patterns in one folder.
+- **Step sequencer.** 7 tracks, up to 32 steps, per-step velocity, accent and pitch, swing, and 8 pattern slots.
+- **MIDI in and out, any audio device.** Output is a stereo mix or the 4 jacks on separate channels.
+- **Command-line tools.** `lxr-play` plays kits live in the terminal; `lxr-render` renders a kit to WAV.
 
-## Use
+## Quick start
 ```sh
-make
-./build/lxr-play path/to/kits       # live: 1-7 triggers (7 = open hat), space all, ←/→ kit, e engine, m hardware (LXR-02/LXR-Drum), o jack solo, q quit
-./build/lxr-render KIT.SND out/kit.wav        # offline: hits each of the 6 voices
+git clone https://github.com/erica-synths/lxr-desktop-app ~/code/vendor/lxr-02/lxr-desktop-app
+git clone https://github.com/brendanclarke/LXR02Open ~/code/vendor/lxr-02/LXR02Open   # optional: LXR-1 engine
+make app && open build/PHX-D01.app
 ```
-Engines are plugins (`build/engine-*.dylib`) exporting only `lxr_*` (see `host/engine.h`), so engines
-built from different firmware trees, with clashing symbol names, can run side by side. `lxr-play` loads every
-engine it finds next to itself and keeps the current kit loaded in all of them, so switching is instant.
+The app ships with no kits. Get Erica's factory kits from the
+[LXR-02 page](https://www.ericasynths.lv/shop/drum-machines/drum-synthesizer-lxr-02) (Downloads: *Factory SD
+content*, *Sound Pack 1 (Hrtl DLC)*), or open your own card. See [Install](docs/install.md).
 
-## App
-`make app` builds `build/PHX-D01.app`: the LXR-02 desktop or LXR-Drum module front panel (drawn from the
-manuals' panel drawings) in a window, on the same engines.
-- Triggers (1-7, shift = accent / full velocity), accent jacks, output-jack solo, desktop faders (firmware curve).
-- Kit banks: each opened folder is a bank. Morph toward a target kit (firmware rule: routing and mod targets stay).
-- Step sequencer in the audio thread: 7 tracks, up to 32 steps, velocity/accent and pitch per step, swing,
-  8 pattern slots. Pitch input: piano (on screen or QWERTY) and MIDI in. Note 60 = the kit's pitch.
-- MIDI out (port + virtual "PHX-D01" source): channel per track (how the LXR listens) or one channel with GM drum
-  notes; timestamped to line up with the audio.
-- Audio out: any device; stereo mix on any channel pair, or the 4 jacks on 4 channels.
+## Docs
+- [Install](docs/install.md): prerequisites, building, getting kits
+- [Panels](docs/panel.md): the desktop and module controls
+- [Kits, cards and projects](docs/kits.md): banks, SD-card layouts, projects, samples
+- [Module](docs/module.md): mod matrix, CV and accents, perform mode, how the module differs from the desktop
+- [Internals](docs/internals.md): how the firmware runs on a Mac, the engines, the kit format
 
-Code: `host/audio.c` (runtime: engines, CoreAudio, sequencer), `host/midi.c` (CoreMIDI), `app/main.swift` (window,
-kit banks, settings), `app/web/` (panels, sequencer UI).
+## Credits
+- **Julian Schmidt / Sonic Potions**: the LXR drum synth and its firmware.
+- **Erica Synths**: the LXR-02 and LXR-Drum, and the open-source
+  [lxr-desktop-app](https://github.com/erica-synths/lxr-desktop-app) firmware (GPL-3.0).
+- **Brendan Clarke**: [LXR02Open](https://github.com/brendanclarke/LXR02Open), the source of the LXR-1 engine.
+- **Leoš Hort**: the Hrtl kit pack.
 
-## Before publishing
-Not yet: rename (Erica's notice reserves "LXR"/"LXR-02"/"Erica Synths" names and the panel design), add credits
-(Julian Schmidt / Sonic Potions, Erica Synths, Brendan Clarke / LXR02Open) and licences, and decide how to ship
-the LXR-1 engine (LXR02Open's non-commercial licence doesn't mix with GPL-3.0 in one program).
-Ask Erica Synths before redistributing `factory/Erica-factory` (their 63 factory kits, unmodified, from the LXR-02
-firmware download's `PROJ00`); the download carries no licence text.
-
-## Factory kits
-`factory/Erica-factory/*.SND` are Erica Synths' factory kits, © Erica Synths. The app always lists them as the first
-bank. (The download's 63 `.PAT` files are empty templates, so they aren't included.)
-
-## Editing and mutes
-As on the hardware: a voice button plays and selects a voice, OSC … MIX show that voice's page (press again for its
-second row), and the 4 knobs edit what the display shows; LOAD or PERF goes back to the kit display, SAVE saves the
-kit. SHIFT (latched) + a voice button mutes it, or ⌥1-7. Mutes silence the sequencer and MIDI in; clicking still plays.
-On the module: EDIT, then the select buttons pick pages; DRUM + a select button picks the voice; PERFORM plays.
-Pages come from the firmware's menu tables via `tools/gen_pages.sh`.
-
-## How it works
-- Kit format (`.SND`, 255 bytes): 8-byte name, then 247 parameter bytes indexed by the firmware's
-  `Parameters.h` enum (`END_OF_SOUND_PARAMETERS` = 247; the `//228` comment there is stale).
-  The Eurorack module and the desktop LXR use the same format.
-- Loading: each byte is fed to `frontParser_parseUartData` as a front-panel CC (param < 128: `MIDI_CC`,
-  else `CC_2`, param − 128), the same path the firmware uses on kit load.
-- Rendering: `mixer_calcNextSampleBlock` (64 stereo frames per call, 44.1 kHz). Both output pairs
-  (DAC1 main, DAC2 second) are summed so routing can't hide a voice.
-- `shim/`: stand-ins for the STM32 HAL (types, Cortex-M intrinsics), FatFs and USB headers.
-- `host/stubs.c`: no-op front panel, LEDs, menu, UART, trigger outputs.
-- Native differences from the hardware: parameter slots with a NULL pointer (`PAR_NONE`) point at scratch
-  memory (address 0 is readable flash on the STM32); `patches/01` computes the ARM overflow flag the noise
-  oscillator reads.
-
-## Engines
-| Plugin | Source | Notes |
-|---|---|---|
-| `engine-lxr2.dylib` | Erica `lxr-desktop-app` v1.7 (GPL-3.0) | the LXR-02's own engine; kits load natively |
-| `engine-lxr1.dylib` | Sonic Potions 0.37 via `LXR02Open` (non-commercial licence) | kits translated by parameter name (`gen_map.py` → `build/lxr1_map.h`, 220/247 params) |
-
-LXR-1 translation: the 27 LXR-2-only parameters (FX bus, PWM, morph) are dropped; voices routed to the FX bus
-play dry on the main output; waveform PWM becomes Rec and sample slots shift down by one.
-
-Native fixes in both: NULL parameter pointers point at scratch memory; kit index 127 is skipped (firmware bug:
-it becomes CC 0 and `midiParser_ccHandler` writes `midiParser_originalCcValues[65536]`); the noise oscillator's
-ARM overflow-flag read is computed in C. LXR-1 only: interrupt masking is a no-op and the RNG is the system's.
-
-## Not yet
-- Hardware models (output stage of the desktop LXR-2 vs the original LXR).
+PHX-D01 is not affiliated with Erica Synths or Sonic Potions. "LXR", "LXR-02" and "Erica Synths" are their names.
+Kits are their authors' work and aren't included here.
