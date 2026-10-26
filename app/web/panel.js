@@ -376,12 +376,14 @@ function buildDesktop(svg) {
   const row = (items, y) => items.map(([t, x, fn, title]) => { const b = button(g, x, y, 10, fn, { title }); label(g, x, y + 24, t, 'lbl small'); return b; });
   [ui.shift] = row([['SHIFT', 75, toggleShift, 'Latch SHIFT: voice buttons then mute/unmute'], ['PLAY', 135, () => window.seqToggle?.(), 'Play/stop the sequencer'], ['REC', 180], ['COPY', 232]], 420);
   [ui.edit, ui.perf] = row([['VOICE', 300, () => setMode('edit'), 'Edit the selected voice'], ['PERF', 355, () => setMode('perf'), 'Performance: voice buttons mute/unmute'], ['LOAD', 410, () => state.mode !== 'load' ? setMode('load') : openFolder(), 'Kit display; again to open a kit folder'], ['SAVE', 465, () => phx.save(), 'Save the kit and the project (⌘S)']], 420);
-  ui.pages = row(PAGE_NAMES.map((t, i) => [t, 560 + i * 55, () => selectPage(i), `${t} page of the selected voice; again for its second row`]), 420);
+  ui.pages = row(PAGE_NAMES.slice(0, 8).map((t, i) => [t, 560 + i * 55, () => selectPage(i), `${t} page of the selected voice; again for its second row`]), 420);
   // the 16 step buttons; the first seven are the voices
   ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CLP/CYM', 'CL HH', 'OP HH', 'KIT', 'MORPH', 'SONG', 'PROJECT', 'CONFIG', 'RELOAD', 'LAST STEP', 'FX', 'PATTERN']
     .forEach((t, i) => {
       const x = 72 + i * 57.2;
-      const b = button(g, x, 498, 22, i < 7 ? e => voicePress(i, e) : null, { square: true, title: i < 7 ? `${t}: play and select · SHIFT (or ⌥) mutes` : undefined });
+      const fx = i === 14 ? e => { if (state.shift || e?.shiftKey) fxPress(); } : null;
+      const b = button(g, x, 498, 22, i < 7 ? e => voicePress(i, e) : fx,
+        { square: true, title: i < 7 ? `${t}: play and select · SHIFT (or ⌥) mutes` : i === 14 ? "SHIFT + FX: the kit's effect" : undefined });
       if (i < 7) ui.trig[i].push(b);
       label(g, x, 536, t, 'lbl small');
     });
@@ -421,7 +423,7 @@ function buildModule(svg) {
   // mode buttons
   const mode = (t, x, y, fn, title) => { label(g, x, y - 20, t, 'lbl small'); return button(g, x, y, 12, fn, { title }); };
   ui.edit = mode('EDIT', 66, 222, () => setMode('edit'), 'Edit voices: select buttons pick the page'); ui.perf = mode('PERFORM', 120, 222, () => setMode('load'), 'Perform: select buttons play the voices');
-  mode('MOD', 66, 278); mode('FX', 120, 278);
+  ui.mod = mode('MOD', 66, 278, modPress, 'MOD: modulation page of the voice · SHIFT + MOD (or shift-click): its LFO'); ui.fx = mode('FX', 120, 278, fxPress, "FX: the kit's effect");
   ui.shift = mode('SHIFT', 66, 334, toggleShift, 'Latch SHIFT: select buttons then mute (perform mode)'); mode('SAVE/LOAD', 120, 334, openFolder, 'Open a folder of .SND kits');
   el('path', { d: 'M54 352 v8 h78 v-8', fill: 'none', stroke: '#9a9893', 'stroke-width': 1 }, g);
   label(g, 93, 374, 'CONFIG', 'lbl small dim');

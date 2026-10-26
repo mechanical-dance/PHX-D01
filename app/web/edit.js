@@ -2,7 +2,9 @@
 // parameters on the display; pressing the page again shows its second row. SHIFT + voice mutes a voice.
 // Page layouts come from the firmware's menu tables (pages.js).
 'use strict';
-const PAGE_NAMES = ['OSC', 'AEG', 'MOD', 'FM', 'CLICK', 'FILTER', 'LFO', 'MIX'];
+const PAGE_NAMES = ['OSC', 'AEG', 'MOD', 'FM', 'CLICK', 'FILTER', 'LFO', 'MIX', 'FX'];
+const MOD_PAGE = 2, LFO_PAGE = 6, FX_PAGE = 8;   // LFO n belongs to voice n; FX is the kit's one effect
+const FX_TYPE = 234;
 const KIT_PARAMS = 247;
 const MOD_TARGETS = 229;   // LXR2_NUM_MODTARGETS
 Object.assign(state, { mode: 'load', voice: 0, page: 0, sub: 0, shift: false, drum: false, mutes: [0, 0, 0, 0, 0, 0, 0], params: [] });
@@ -11,7 +13,9 @@ Object.assign(state, { mode: 'load', voice: 0, page: 0, sub: 0, shift: false, dr
 // with its own decay in place of the closed one.
 function pageSlots(voice, page) {
   const v = Math.min(voice, 5);
-  return LXR_PAGES.pages[v][page].map(([s, , l, p, t]) => {
+  // the FX page has one layout per effect type, so it changes as you change the type
+  const slots = page === FX_PAGE ? LXR_PAGES.fx[Math.min(state.params[FX_TYPE] ?? 0, LXR_PAGES.fx.length - 1)] : LXR_PAGES.pages[v][page];
+  return slots.map(([s, , l, p, t]) => {
     if (voice === 6 && p === 60) return ['d2', 'Decay open', 61, t];
     return p > 0 && p < KIT_PARAMS ? [s, l, p, t] : null;
   });
@@ -24,6 +28,7 @@ function range(t) {
   if (kind === 6 || kind === 11) return [0, 1];
   if (kind === 7 || kind === 8) return [0, MOD_TARGETS - 1];
   if (kind === 9) return [1, 6];
+  if (kind === 15) return [0, 100];
   if (kind === 0) return [0, 255];
   return [0, 127];
 }
@@ -41,7 +46,10 @@ function editRows() {
   const slots = rowSlots(), voice = TRIGGERS[state.voice];
   const names = slots.map((s, i) => !s ? '' : i === state.knobFocus && Date.now() < state.paramUntil ? s[0].toUpperCase() : s[0]);
   const vals = slots.map(s => (s ? showValue(state.params[s[2]] ?? 0, s[3]) : ''));
-  const head = pad(`${voice} ${PAGE_NAMES[state.page]}${pageSlots(state.voice, state.page).slice(4).some(Boolean) ? (state.sub ? ' 2/2' : ' 1/2') : ''}`, 16);
+  const two = pageSlots(state.voice, state.page).slice(4).some(Boolean) ? (state.sub ? ' 2/2' : ' 1/2') : '';
+  const what = state.page === FX_PAGE ? 'FX ' + (LXR_PAGES.menus[18]?.[state.params[FX_TYPE] ?? 0] ?? '')
+    : state.page === LFO_PAGE ? `LFO${Math.min(state.voice, 5) + 1} ${voice}` : `${voice} ${PAGE_NAMES[state.page]}`;
+  const head = pad(what + two, 16);
   return Date.now() < state.paramUntil
     ? [names.map(n => pad(n, 4)).join(''), vals.map(v => pad(v, 4)).join('')]
     : [head, names.map(n => pad(n, 4)).join('')];
@@ -68,6 +76,14 @@ function selectPage(p) {
   refresh();
 }
 function toggleShift() { state.shift = !state.shift; refresh(); }
+// Module MOD: the voice's modulation page (pitch EG, accent routing); SHIFT + MOD: its LFO (manual p.16).
+// FX (module) or SHIFT + FX (desktop step 15): the kit's effect. DRUM + select still picks the voice/LFO.
+function modPress(e) {
+  const lfo = state.shift || e?.shiftKey;
+  state.shift = false;
+  selectPage(lfo ? LFO_PAGE : MOD_PAGE);
+}
+function fxPress() { state.shift = false; selectPage(FX_PAGE); }
 function toggleMute(t) {
   state.mutes[t] ^= 1;
   post({ cmd: 'mute', t, on: state.mutes[t] });
@@ -102,7 +118,9 @@ function markButtons() {
   (ui.pages || []).forEach((n, p) => n.classList.toggle('on', state.mode === 'edit' && state.page === p));
   ui.shift?.classList.toggle('on', state.shift);
   ui.drum?.classList.toggle('on', state.drum);
-  ui.edit?.classList.toggle('on', state.mode === 'edit');
+  ui.edit?.classList.toggle('on', state.mode === 'edit' && ![MOD_PAGE, LFO_PAGE, FX_PAGE].includes(state.page));
+  ui.mod?.classList.toggle('on', state.mode === 'edit' && (state.page === MOD_PAGE || state.page === LFO_PAGE));
+  ui.fx?.classList.toggle('on', state.mode === 'edit' && state.page === FX_PAGE);
   ui.perf?.classList.toggle('on', state.mode === 'perf' || (state.hw === MODULE && state.mode !== 'edit'));
 }
 
