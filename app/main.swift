@@ -5,8 +5,8 @@ import WebKit
 
 struct Kit { var name: String; var file: String; let bank: String; var params: [UInt8]; let dir: URL; var edited = false; var virtual = false }
 
-// The firmware's limits: 64 kits per project; banks show up to 5 empty INIT slots until they reach it.
-let bankSize = 64, initPadding = 5
+// Every bank ends with 5 empty INIT slots to save over.
+let initPadding = 5
 let userRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents/PHX-D01")
 let initParams: [UInt8] = {
     var p = [UInt8](repeating: 0, count: Int(LXR_KIT_PARAMS)), n = [CChar](repeating: 0, count: 9)
@@ -154,7 +154,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         // empty INIT slots after the last kit, numbered on from the highest NN- prefix
         let next = (kits.compactMap { Int($0.file.prefix(2)) }.max() ?? -1) + 1
         let trailing = kits.reversed().prefix { $0.name.uppercased().hasPrefix("INIT") }.count
-        for n in next..<min(bankSize, next + max(0, initPadding - trailing)) {
+        for n in next..<(next + max(0, initPadding - trailing)) {
             kits.append(Kit(name: "INIT", file: String(format: "%02d-INIT.SND", n), bank: url.lastPathComponent, params: initParams, dir: url, virtual: true))
         }
         return kits
