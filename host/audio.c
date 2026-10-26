@@ -18,6 +18,7 @@ typedef struct {
 	void (*fader)(int, float);
 	void (*render)(int16_t[LXR_JACKS][LXR_BLOCK]);
 	void (*samples)(const int16_t *, const uint32_t *, const uint32_t *, const uint8_t *, int);   /* optional */
+	void (*set_mod)(const LxrMod *);   /* optional: the module's mod matrix */
 } Engine;
 
 #define MAX_ENGINES 4
@@ -27,12 +28,12 @@ static Engine engines[MAX_ENGINES];
 static int n_engines;
 
 /* Commands to the audio thread: many producers (UI, MIDI) behind a lock, one consumer that never locks. */
-enum { CMD_HIT, CMD_LOAD, CMD_ENGINE, CMD_SOLO, CMD_FADER, CMD_HW, CMD_PATTERN, CMD_TRANSPORT, CMD_TEMPO, CMD_SAMPLES };
+enum { CMD_HIT, CMD_LOAD, CMD_ENGINE, CMD_SOLO, CMD_FADER, CMD_HW, CMD_PATTERN, CMD_TRANSPORT, CMD_TEMPO, CMD_SAMPLES, CMD_MATRIX, CMD_CV, CMD_ACCENT };
 typedef struct {
 	int type, arg, vel, note, from_midi;
 	float value, value2;
 	const LxaSamples *samples;
-	union { uint8_t params[LXR_KIT_PARAMS]; LxaStep steps[LXA_TRACKS][LXA_MAX_STEPS]; } data;
+	union { uint8_t params[LXR_KIT_PARAMS]; LxaStep steps[LXA_TRACKS][LXA_MAX_STEPS]; uint8_t matrix[LXR_MOD_BYTES]; } data;
 } Cmd;
 #define RING 128
 static Cmd ring[RING];
@@ -46,6 +47,19 @@ static LxaStep pattern[LXA_TRACKS][LXA_MAX_STEPS];
 static int pat_len = 16, playing, step;
 static double bpm = 120, swing, grid_at, now;   /* times in frames */
 static int note_off_track[LXA_TRACKS];
+/* The module's matrix and its live inputs. An accent gate is high while held, and for a moment after an accented hit
+   (vel 127 on the module: the accent and the trigger arrive together). Triggers 5 and 6 share the hihat accent. */
+static LxrMod mod;
+static uint8_t matrix[LXR_MOD_BYTES], acc_held[6];
+static double acc_until[6];
+#define ACCENT_FRAMES (LXR_RATE / 100)
+static void send_mod(void)
+{
+	mod.on = hw == LXA_MODULE;
+	memcpy(mod.dst, matrix, LXR_MOD_BYTES);
+	for (int a = 0; a < 6; a++) mod.acc[a] = acc_held[a] || now < acc_until[a];
+	for (int e = 0; e < n_engines; e++) if (engines[e].set_mod) engines[e].set_mod(&mod);
+}
 static double note_off_at[LXA_TRACKS];
 
 static _Atomic int playhead = -1;
@@ -81,6 +95,7 @@ static uint64_t midi_delay_ns(double at_frame)
 
 static void play_note(int t, int note, int vel, double at_frame, int send_midi)
 {
+	if (hw == LXA_MODULE && vel >= 127) { acc_until[t < 5 ? t : 5] = at_frame + ACCENT_FRAMES; send_mod(); }
 	engines[active].note(t, (uint8_t)note, (uint8_t)vel);
 	atomic_fetch_add(&hits[t], 1);
 	if (!send_midi) return;
@@ -119,7 +134,10 @@ static void handle(Cmd *c)
 	case CMD_LOAD: for (int e = 0; e < n_engines; e++) engines[e].load(c->data.params); break;
 	case CMD_ENGINE: active = c->arg; break;
 	case CMD_SOLO: solo = c->arg; break;
-	case CMD_HW: hw = c->arg; apply_faders(); break;
+	case CMD_HW: hw = c->arg; apply_faders(); send_mod(); break;
+	case CMD_MATRIX: memcpy(matrix, c->data.matrix, LXR_MOD_BYTES); send_mod(); break;
+	case CMD_CV: mod.cv[c->arg] = c->value; send_mod(); break;
+	case CMD_ACCENT: acc_held[c->arg] = (uint8_t)c->vel; send_mod(); break;
 	case CMD_FADER:
 		if (c->arg == 6) master = c->value;
 		else { fader_gain[c->arg] = c->value; apply_faders(); }
@@ -151,6 +169,7 @@ static void audio_cb(void *ud, AudioQueueRef q, AudioQueueBufferRef buf)
 	int blocks = buf->mAudioDataBytesCapacity / (LXR_BLOCK * frame_bytes);
 	float gain = hw == LXA_MODULE ? 1.f : master;
 	for (int b = 0; b < blocks; b++) {
+		for (int a = 0; a < 6; a++) if (acc_until[a] > 0 && now >= acc_until[a]) { acc_until[a] = 0; send_mod(); }
 		sequence(now + LXR_BLOCK);
 		engines[active].render(jack);
 		for (int i = 0; i < LXR_BLOCK; i++)
@@ -170,7 +189,7 @@ static int load_engine(const char *path)
 	void *h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
 	if (!h) return 0;
 	Engine e = { dlsym(h, "lxr_engine_name"), dlsym(h, "lxr_init"), dlsym(h, "lxr_load_params"), dlsym(h, "lxr_hit"),
-	             dlsym(h, "lxr_note"), dlsym(h, "lxr_set_fader"), dlsym(h, "lxr_render"), dlsym(h, "lxr_set_samples") };
+	             dlsym(h, "lxr_note"), dlsym(h, "lxr_set_fader"), dlsym(h, "lxr_render"), dlsym(h, "lxr_set_samples"), dlsym(h, "lxr_set_mod") };
 	if (!e.name || !e.init || !e.load || !e.hit || !e.note || !e.fader || !e.render) { fprintf(stderr, "%s: missing symbols\n", path); return 0; }
 	e.init();
 	engines[n_engines++] = e;
@@ -304,6 +323,10 @@ void lxa_load(const uint8_t params[LXR_KIT_PARAMS])
 /* The set must stay alive while any engine uses it; the app keeps every set it sends (they are small and rare). */
 void lxa_samples(const LxaSamples *set) { Cmd c = { .type = CMD_SAMPLES, .samples = set }; push(&c); }
 int lxa_engine_has_samples(int engine) { return engine >= 0 && engine < n_engines && engines[engine].samples != NULL; }
+
+void lxa_matrix(const uint8_t m[LXR_MOD_BYTES]) { Cmd c = { .type = CMD_MATRIX }; memcpy(c.data.matrix, m, LXR_MOD_BYTES); push(&c); }
+void lxa_cv(int jack, float volts) { if (jack >= 0 && jack < 5) { Cmd c = { .type = CMD_CV, .arg = jack, .value = volts }; push(&c); } }
+void lxa_accent(int jack, int high) { if (jack >= 0 && jack < 6) { Cmd c = { .type = CMD_ACCENT, .arg = jack, .vel = high != 0 }; push(&c); } }
 
 void lxa_mute(int track, int on) { if (track >= 0 && track < LXA_TRACKS) atomic_store(&muted[track], on != 0); }
 

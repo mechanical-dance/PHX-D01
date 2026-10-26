@@ -17,11 +17,21 @@ LXR_API void lxr_hit(int voice, uint8_t velocity);          /* trigger 0-6: voic
 LXR_API void lxr_note(int voice, uint8_t note, uint8_t velocity); /* as lxr_hit, pitched: note 60 = the kit's own pitch, +-1 = a semitone */
 LXR_API void lxr_set_fader(int voice, float gain);           /* voice 0-5 fader gain 0-1, after the fader curve; 1 = no fader */
 LXR_API void lxr_render(int16_t jack[LXR_JACKS][LXR_BLOCK]); /* one mono buffer per output jack */
+/* Optional (LXR-2 only): the LXR-Drum module's mod matrix. 3 slots per voice, stored after the 247 kit bytes in the
+   module's 309-byte .SND as 18 targets, 18 amounts (0-100 %), 18 sources (0-4 CV1-5, 5-10 LFO1-6, 11-16 accent 1-6).
+   on = 0 is the desktop: each LFO and velocity has its own target. on = 1 is the module: those targets are silenced
+   and the LFOs only reach the sound through the matrix. cv in volts (+-5), acc = accent gates. */
+#define LXR_MOD_SLOTS 18
+#define LXR_MOD_BYTES (3 * LXR_MOD_SLOTS)
+typedef struct { uint8_t on; uint8_t dst[LXR_MOD_SLOTS], amt[LXR_MOD_SLOTS], src[LXR_MOD_SLOTS]; float cv[5]; uint8_t acc[6]; } LxrMod;
+LXR_API void lxr_set_mod(const LxrMod *m);
 /* Optional (LXR-1 only): user samples, see LxaSamples in audio.h. */
 LXR_API void lxr_set_samples(const int16_t *pcm, const uint32_t *offsets, const uint32_t *sizes, const uint8_t *loops, int count);
 /* LXR-2 kit indexes of the six main oscillator waveforms (drum1-3, snare, cymbal, hihat). */
 extern const int lxr_osc_wave_param[6];
 
-int lxr_read_kit(const char *path, uint8_t params[LXR_KIT_PARAMS], char name[9]);   /* 0 on success; host side */
+/* Host side. A kit file: the 8-byte name, the 247 params, and on the module the 54 mod-matrix bytes. params holds
+   LXR_KIT_PARAMS + LXR_MOD_BYTES bytes; the matrix is zero (all slots off) for a 255-byte desktop kit. */
+int lxr_read_kit(const char *path, uint8_t params[LXR_KIT_PARAMS + LXR_MOD_BYTES], char name[9]);   /* 0 on success */
 /* The firmware's kit morph (preset_morph_tick): amount 0-255 from kit a to kit b. Routing and mod targets stay on a. */
 void lxr_morph_kit(const uint8_t a[LXR_KIT_PARAMS], const uint8_t b[LXR_KIT_PARAMS], uint8_t amount, uint8_t out[LXR_KIT_PARAMS]);

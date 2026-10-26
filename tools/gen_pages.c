@@ -40,5 +40,11 @@ int main(void)
 	LIST(MENU_TRANS, transientNames, 3) LIST(MENU_MIX_FM, mixFmNames, 5)
 	LIST(MENU_FX, fxNames, 3) LIST(MENU_DIST, distNames, 3) LIST(MENU_RATIO, ratioNames, 3) LIST(MENU_DELAY, delayNames, 3)
 	LIST(MENU_AUDIO_OUT_FX, outputNamesFx, 6)
-	printf("}}\n");
+	printf("},\"names\":[");   /* every value name [short, long]: what mod-target name indexes point at */
+	for (unsigned i = 0; i < sizeof valueNames / sizeof valueNames[0]; i++) {
+		printf(i ? ",[" : "[");
+		str(shortNames[valueNames[i].shortName], 3); putchar(',');
+		str(longNames[valueNames[i].longName], 16); putchar(']');
+	}
+	printf("]}\n");
 }

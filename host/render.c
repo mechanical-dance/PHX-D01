@@ -18,7 +18,7 @@ int main(int argc, char **argv)
 	if (argc < 3) { fprintf(stderr, "usage: lxr-render KIT.SND out.wav\n"); return 2; }
 	lxr_init();
 	char name[9];
-	uint8_t params[LXR_KIT_PARAMS];
+	uint8_t params[LXR_KIT_PARAMS + LXR_MOD_BYTES];
 	if (lxr_read_kit(argv[1], params, name)) { fprintf(stderr, "can't load %s\n", argv[1]); return 1; }
 	lxr_load_params(params);
 	static const char *vname[6] = {"drum1", "drum2", "drum3", "snare", "cymbal", "hihat"};

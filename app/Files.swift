@@ -12,14 +12,22 @@ enum LxrFile {
         return a + [UInt8](repeating: 32, count: 8 - a.count)
     }
 
-    // preset_makeFileNameSave: "NN-" plus the first 5 legal characters of the name.
+    // preset_makeFileNameSave: "NN-" plus the first 5 legal characters of the name; the module's slots 100-127 are
+    // "NNN-" plus 4 (an 8-character stem either way, as on its card: 101-ELEC.SND).
     static func fileName(_ num: Int, _ name: String, _ ext: String) -> String {
         let legal = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()-@^_`{}~")
-        let cleaned = String(name.trimmingCharacters(in: .whitespaces).map { $0 == " " ? "_" : legal.contains($0) ? $0 : "_" }.prefix(5))
-        return String(format: "%02d-", num % 100) + cleaned + "." + ext
+        let cleaned = String(name.trimmingCharacters(in: .whitespaces).map { $0 == " " ? "_" : legal.contains($0) ? $0 : "_" }.prefix(num >= 100 ? 4 : 5))
+        return String(format: num >= 100 ? "%03d-" : "%02d-", num) + cleaned + "." + ext
     }
+    // The slot of NN-NAME.SND / NNN-NAME.SND.
+    static func slot(_ file: String) -> Int? { Int(file.prefix { $0.isNumber }) }
 
-    static func kitData(name: String, params: [UInt8]) -> Data { Data(name8(name) + params) }
+    // A kit's params are the 247 LXR-2 bytes plus the module's 54 mod-matrix bytes. With every matrix slot off it's
+    // written as the desktop's 255-byte file (which the module reads too); otherwise as the module's 309 bytes.
+    static func kitData(name: String, params: [UInt8]) -> Data {
+        let base = Int(LXR_KIT_PARAMS), matrix = params.dropFirst(base)
+        return Data(name8(name) + params.prefix(base) + (matrix.contains { $0 != 0 } ? Array(matrix) : []))
+    }
 
     // Our pattern: one length for all tracks, steps of [velocity (0 = off), note].
     struct Pattern { var name: String; var len: Int; var steps: [[[Int]]] }
@@ -193,8 +201,8 @@ extension App {
     // One kit per slot: move every file already in the slot of `file` (NN-*.SND, iCloud placeholders too) to the Trash.
     // Returns their names, or nil (after an alert) if one can't be moved, so the caller doesn't write a second kit there.
     func clearSlot(_ dir: URL, _ file: String) -> [String]? {
-        guard file.range(of: #"^\d\d-"#, options: .regularExpression) != nil else { return [] }
-        let prefix = String(file.prefix(3)), fm = FileManager.default
+        guard let n = LxrFile.slot(file), file.range(of: #"^\d+-"#, options: .regularExpression) != nil else { return [] }
+        let prefix = String(format: n >= 100 ? "%03d-" : "%02d-", n), fm = FileManager.default
         let names = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
         let inSlot = names.filter { n in
             let u = n.uppercased()
@@ -251,7 +259,7 @@ extension App {
         p.directoryURL = dir
         p.allowedContentTypes = []
         // default to the first free NN- slot in that folder, so the suggested name never replaces a kit
-        let used = Set(((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).compactMap { Int($0.prefix(2)) })
+        let used = Set(((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).compactMap { LxrFile.slot($0) })
         let free = (0..<bankSlots).first { !used.contains($0) } ?? bankSlots - 1
         p.nameFieldStringValue = LxrFile.fileName(free, morphed ? "M" + k.name : k.name, "SND")
         p.message = "The kit's name is the file name without its NN- prefix (8 characters)."
@@ -427,12 +435,11 @@ extension App {
 // ---------- projects ----------
 // There is always a current project: Projects/Default is made on first launch. A project folder holds phx.json
 // (layout, patterns, tempo, swing), samples/ and loops/, and a card folder that is also the project's own bank:
-// Project00/ for the module (up to 128 kits) or PROJ00/ for the desktop (64 kits, plus the patterns as .PAT and
-// PRJ.NFO, the name). To the desktop firmware missing files just mean an incomplete project, and GLO.CFG is left out
+// PROJ00/ (module: up to 128 kits; desktop: 64 kits plus the patterns as .PAT), with PRJ.NFO, the name. To the desktop firmware missing files just mean an incomplete project, and GLO.CFG is left out
 // so copying a project to a card keeps the card's global settings. No autosave: there is no undo.
 extension App {
     var projectsRoot: URL { userRoot.appendingPathComponent("Projects") }
-    var projectCard: URL { App.cardFolder(in: project) ?? project.appendingPathComponent(layout(of: project) == "desktop" ? "PROJ00" : "Project00") }
+    var projectCard: URL { App.cardFolder(in: project) ?? project.appendingPathComponent("PROJ00") }
 
     static func isCard(_ u: URL) -> Bool { u.lastPathComponent.range(of: #"^(proj|project)\d\d$"#, options: [.regularExpression, .caseInsensitive]) != nil }
     static func cardFolder(in dir: URL) -> URL? {
@@ -442,7 +449,16 @@ extension App {
     func layout(of dir: URL) -> String {
         if let d = try? Data(contentsOf: dir.appendingPathComponent("phx.json")),
            let m = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any], let l = m["layout"] as? String { return l }
-        return App.cardFolder(in: dir)?.lastPathComponent.count == 6 ? "desktop" : "module"   // PROJnn vs Project00
+        return App.cardFolder(in: dir).map(App.cardLayout) ?? "module"
+    }
+    // Both machines' cards hold PROJnn folders with .SND, .PAT, .SNG, GLO.CFG and PRJ.NFO (the module manual's
+    // "Project00" is out of date), so only the kits tell them apart: a 309-byte kit (mod matrix) or a slot past 63 is
+    // the module's. Otherwise: the desktop if it has patterns, else the module.
+    static func cardLayout(_ card: URL) -> String {
+        let fm = FileManager.default, files = (try? fm.contentsOfDirectory(atPath: card.path)) ?? []
+        let kits = files.filter { $0.uppercased().hasSuffix(".SND") }
+        if kits.contains(where: { (LxrFile.slot($0) ?? 0) >= 64 || (try? fm.attributesOfItem(atPath: card.appendingPathComponent($0).path)[.size] as? Int) == 309 }) { return "module" }
+        return files.contains { $0.uppercased().hasSuffix(".PAT") } ? "desktop" : "module"
     }
 
     // Banks are named after their folder; the project's own bank after the project.
@@ -453,7 +469,7 @@ extension App {
 
     func makeProject(_ dir: URL, layout: String) {
         let fm = FileManager.default
-        try? fm.createDirectory(at: App.cardFolder(in: dir) ?? dir.appendingPathComponent(layout == "desktop" ? "PROJ00" : "Project00"), withIntermediateDirectories: true)
+        try? fm.createDirectory(at: App.cardFolder(in: dir) ?? dir.appendingPathComponent("PROJ00"), withIntermediateDirectories: true)
         let meta = dir.appendingPathComponent("phx.json")
         if !fm.fileExists(atPath: meta.path) { try? Data(#"{"layout":"\#(layout)"}"#.utf8).write(to: meta) }
     }
@@ -494,7 +510,9 @@ extension App {
             let dest = sub.appendingPathComponent(smp.url.lastPathComponent)
             if !fm.fileExists(atPath: dest.path) { try fm.copyItem(at: smp.url, to: dest) }
         }
-        guard lay == "desktop", let card = App.cardFolder(in: dir) else { return }
+        guard let card = App.cardFolder(in: dir) else { return }
+        try Data(LxrFile.name8(dir.lastPathComponent)).write(to: card.appendingPathComponent("PRJ.NFO"))
+        guard lay == "desktop" else { return }
         let pats = patterns(from: d), swing = (d["swing"] as? NSNumber)?.doubleValue ?? 0
         let names = (try? fm.contentsOfDirectory(atPath: card.path)) ?? []
         for (n, pat) in pats.prefix(8).enumerated() {
@@ -502,7 +520,6 @@ extension App {
             for f in names where f.hasPrefix(prefix) && f.uppercased().hasSuffix(".PAT") { try? fm.removeItem(at: card.appendingPathComponent(f)) }
             try LxrFile.patternData(pat, swing: swing, kitNr: 0).write(to: card.appendingPathComponent(LxrFile.fileName(n, pat.name, "PAT")))
         }
-        try Data(LxrFile.name8(dir.lastPathComponent)).write(to: card.appendingPathComponent("PRJ.NFO"))
     }
 
     // ⌘S: the kit you're on (unless it's an untouched empty INIT slot) and the current project.
@@ -541,7 +558,7 @@ extension App {
             guard let card = App.cardFolder(in: dir) else { return }
             var left = 0
             for f in ((try? fm.contentsOfDirectory(atPath: self.projectCard.path)) ?? []).filter({ $0.uppercased().hasSuffix(".SND") }) {
-                if desktop, (Int(f.prefix(2)) ?? 0) >= 64 { left += 1; continue }
+                if desktop, (LxrFile.slot(f) ?? 0) >= 64 { left += 1; continue }
                 try? fm.copyItem(at: self.projectCard.appendingPathComponent(f), to: card.appendingPathComponent(f))
             }
             do { try self.writeProject(d, to: dir) } catch { self.alert("Couldn't save the project", error.localizedDescription); return }
@@ -555,7 +572,7 @@ extension App {
         p.canChooseDirectories = true
         p.canChooseFiles = false
         p.directoryURL = projectsRoot
-        p.message = "Choose a project, or a card folder (PROJnn from the desktop, Project00 from the module)"
+        p.message = "Choose a project, or a card folder (PROJnn from an SD card)"
         p.beginSheetModal(for: window) { r in
             guard r == .OK, let dir = p.url else { return }
             self.loadProject(dir)
@@ -575,9 +592,9 @@ extension App {
                 try fm.createDirectory(at: dir, withIntermediateDirectories: true)
                 try fm.copyItem(at: picked, to: dir.appendingPathComponent(picked.lastPathComponent))
             } catch { alert("Couldn't import \(picked.lastPathComponent)", error.localizedDescription); return }
-            makeProject(dir, layout: picked.lastPathComponent.count == 6 ? "desktop" : "module")
+            makeProject(dir, layout: App.cardLayout(picked))
         } else if !fm.fileExists(atPath: dir.appendingPathComponent("phx.json").path) && App.cardFolder(in: dir) == nil {
-            alert("Not a project", "\(dir.lastPathComponent) has no phx.json and no PROJnn / Project00 folder."); return
+            alert("Not a project", "\(dir.lastPathComponent) has no phx.json and no PROJnn folder."); return
         }
         // the project's samples replace the current ones
         samples = []

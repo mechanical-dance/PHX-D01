@@ -13,6 +13,7 @@ const state = {
   base: 64,           // module: velocity of an unaccented trigger (assumed; accented = 127)
   solo: 0,            // 0 = mix, 1-4 = jack
   accent: [0, 0, 0, 0, 0, 0],   // module: accent jack held high (patched)
+  cv: [0, 0, 0, 0, 0],          // module: CV in 1-5, volts (they feed the kit's mod matrix)
   faders: [1, 1, 1, 1, 1, 1, 1],
   knobFocus: -1, paramUntil: 0,
 };
@@ -413,17 +414,29 @@ function buildModule(svg) {
   // jack row 2: 6 accent inputs, 5 CV inputs
   for (let a = 0; a < 6; a++) {
     label(g, xs(a), 126, 'ACC' + (a + 1), 'lbl small');
-    ui.acc[a] = jack(g, xs(a), 150, () => { state.accent[a] ^= 1; refresh(); }, `Accent in ${a + 1}: click to hold the accent gate high${a === 5 ? ' (hihat: both CL HH and OP HH)' : ''}`);
+    ui.acc[a] = jack(g, xs(a), 150, () => { state.accent[a] ^= 1; post({ cmd: 'accent', jack: a, on: state.accent[a] }); refresh(); },
+      `Accent in ${a + 1}: click to hold the accent gate high${a === 5 ? ' (hihat: both CL HH and OP HH)' : ''}; also a mod-matrix source (ac${a + 1})`);
   }
   for (let c = 0; c < 5; c++) {
     label(g, xs(6 + c), 126, 'CV' + (c + 1), 'lbl small');
-    jack(g, xs(6 + c), 150, null, `CV in ${c + 1}: not modeled yet (it feeds the kit's mod matrix)`);
+    // a CV source: drag or scroll sets its voltage (shift: fine), double-click 0 V
+    const n = jack(g, xs(6 + c), 150, null, `CV in ${c + 1} (cv${c + 1} in the mod matrix): drag or scroll for -5..+5 V, shift for fine, double-click for 0 V; with amt 100 on v/o, 1 V = 1 octave`);
+    n.classList.remove('inert');
+    const volts = label(g, xs(6 + c), 178, '', 'lbl small dim');
+    const show = () => { volts.textContent = state.cv[c] ? (state.cv[c] > 0 ? '+' : '') + state.cv[c].toFixed(2) + 'V' : ''; n.classList.toggle('patched', !!state.cv[c]); };
+    const set = v => { state.cv[c] = Math.round(Math.min(5, Math.max(-5, v)) * 100) / 100; post({ cmd: 'cv', jack: c, v: state.cv[c] }); show(); };
+    let fine = false;
+    n.addEventListener('pointerdown', e => { fine = e.shiftKey; }, true);
+    n.addEventListener('wheel', e => { fine = e.shiftKey; }, { capture: true, passive: true });
+    turnable(n, d => set(state.cv[c] + d * (fine ? 1 / 12 : 0.1)), 4);
+    n.addEventListener('dblclick', () => set(0));
+    show();
   }
 
   // mode buttons
   const mode = (t, x, y, fn, title) => { label(g, x, y - 20, t, 'lbl small'); return button(g, x, y, 12, fn, { title }); };
   ui.edit = mode('EDIT', 66, 222, () => setMode('edit'), 'Edit voices: select buttons pick the page'); ui.perf = mode('PERFORM', 120, 222, () => setMode('load'), 'Perform: select buttons play the voices');
-  ui.mod = mode('MOD', 66, 278, modPress, 'MOD: modulation page of the voice · SHIFT + MOD (or shift-click): its LFO'); ui.fx = mode('FX', 120, 278, fxPress, "FX: the kit's effect");
+  ui.mod = mode('MOD', 66, 278, modPress, 'MOD: the voice\'s mod matrix (again: next slot a/b/c) · SHIFT + MOD (or shift-click): its LFO'); ui.fx = mode('FX', 120, 278, fxPress, "FX: the kit's effect");
   ui.shift = mode('SHIFT', 66, 334, toggleShift, 'Latch SHIFT: select buttons then mute (perform mode)'); mode('SAVE/LOAD', 120, 334, openFolder, 'Open a folder of .SND kits');
   el('path', { d: 'M54 352 v8 h78 v-8', fill: 'none', stroke: '#9a9893', 'stroke-width': 1 }, g);
   label(g, 93, 374, 'CONFIG', 'lbl small dim');

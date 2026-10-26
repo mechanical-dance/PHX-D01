@@ -8,9 +8,10 @@ struct Kit { var name: String; var file: String; let bank: String; var params: [
 // Every bank ends with 5 empty INIT slots to save over.
 let initPadding = 5
 let bankSlots = 128   // the module holds kits 0-127 in one folder
+let kitBytes = Int(LXR_KIT_PARAMS) + Int(LXR_MOD_BYTES)   // a kit's params plus the module's mod matrix
 let userRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents/PHX-D01")
 let initParams: [UInt8] = {
-    var p = [UInt8](repeating: 0, count: Int(LXR_KIT_PARAMS)), n = [CChar](repeating: 0, count: 9)
+    var p = [UInt8](repeating: 0, count: kitBytes), n = [CChar](repeating: 0, count: 9)
     if let u = Bundle.main.resourceURL?.appendingPathComponent("INIT.SND") { _ = lxr_read_kit(u.path, &p, &n) }
     return p
 }()
@@ -70,6 +71,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "kit": select(Int(int("i")))
         case "engine": lxa_engine(int("i"))
         case "hw": lxa_hardware(int("v"))
+        case "cv": lxa_cv(int("jack"), (d["v"] as? NSNumber)?.floatValue ?? 0)
+        case "accent": lxa_accent(int("jack"), int("on"))
         case "fader": lxa_fader(int("i"), (d["pos"] as? NSNumber)?.floatValue ?? 1)
         case "solo": lxa_solo(int("jack"))
         case "open": chooseFolder()
@@ -117,7 +120,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "clearSamples": clearSamples()
         case "param":
             let i = Int(int("i"))
-            guard !kits.isEmpty, i >= 0, i < Int(LXR_KIT_PARAMS) else { break }
+            guard !kits.isEmpty, i >= 0, i < kitBytes else { break }
             kits[kit].params[i] = UInt8(clamping: int("v"))
             kits[kit].edited = true
             applyKit()
@@ -164,18 +167,19 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
 
     static func readKits(_ url: URL, bank: String) -> [Kit] {
         let files = ((try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? [])
-            .filter { $0.lowercased().hasSuffix(".snd") && !$0.hasPrefix(".") }.sorted()
+            .filter { $0.lowercased().hasSuffix(".snd") && !$0.hasPrefix(".") }
+            .sorted { (LxrFile.slot($0) ?? Int.max, $0) < (LxrFile.slot($1) ?? Int.max, $1) }
         var kits: [Kit] = files.compactMap { f in
-            var params = [UInt8](repeating: 0, count: Int(LXR_KIT_PARAMS))
+            var params = [UInt8](repeating: 0, count: kitBytes)
             var name = [CChar](repeating: 0, count: 9)
             guard lxr_read_kit(url.appendingPathComponent(f).path, &params, &name) == 0 else { return nil }
             return Kit(name: String(cString: name).trimmingCharacters(in: .whitespaces), file: f, bank: bank, params: params, dir: url)
         }
         // empty INIT slots after the last kit, numbered on from the highest NN- prefix
-        let next = (kits.compactMap { Int($0.file.prefix(2)) }.max() ?? -1) + 1
+        let next = (kits.compactMap { LxrFile.slot($0.file) }.max() ?? -1) + 1
         let trailing = kits.reversed().prefix { $0.name.uppercased().hasPrefix("INIT") }.count
         for n in next..<min(bankSlots, next + max(0, initPadding - trailing)) {
-            kits.append(Kit(name: "INIT", file: String(format: "%02d-INIT.SND", n), bank: bank, params: initParams, dir: url, virtual: true))
+            kits.append(Kit(name: "INIT", file: LxrFile.fileName(n, "INIT", "SND"), bank: bank, params: initParams, dir: url, virtual: true))
         }
         return kits
     }
@@ -226,7 +230,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     // The selected kit, morphed toward the morph target by the firmware's rule.
     func applyKit() {
         guard !kits.isEmpty else { return }
-        heardParams().withUnsafeBufferPointer { lxa_load($0.baseAddress) }
+        let p = heardParams()
+        p.withUnsafeBufferPointer { lxa_load($0.baseAddress); lxa_matrix($0.baseAddress! + Int(LXR_KIT_PARAMS)) }
     }
 
     func heardParams() -> [UInt8] {

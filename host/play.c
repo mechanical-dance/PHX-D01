@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 	_NSGetExecutablePath(dir, &sz);
 	*strrchr(dir, '/') = 0;
 	for (int i = 1; i < argc; i++) add_kits(argv[i]);
-	static uint8_t params[MAX_KITS][LXR_KIT_PARAMS];
+	static uint8_t params[MAX_KITS][LXR_KIT_PARAMS + LXR_MOD_BYTES];
 	int good = 0;
 	for (int i = 0; i < n_kits; i++)
 		if (lxr_read_kit(kit_paths[i], params[good], kit_names[good]) == 0) { kit_paths[good] = kit_paths[i]; good++; }

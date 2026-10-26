@@ -23,6 +23,10 @@ void lxa_hit(int trigger, int velocity);   /* trigger 0-6 (5 = closed hat, 6 = o
 void lxa_note(int trigger, int note, int velocity);   /* pitched hit, also sent as MIDI */
 void lxa_fader(int fader, float position); /* 0-5 voice faders, 6 master; position 0-1 as the fader sits */
 void lxa_solo(int jack);
+/* The LXR-Drum module's mod matrix (applied in the module hardware mode; see LxrMod in engine.h). */
+void lxa_matrix(const uint8_t m[LXR_MOD_BYTES]);   /* the kit's 54 matrix bytes */
+void lxa_cv(int jack, float volts);                /* CV in 1-5 as 0-4, +-5 V */
+void lxa_accent(int jack, int high);               /* accent in 1-6 as 0-5, held high or low */
 void lxa_mute(int track, int on);         /* 0-6; a muted track still plays when hit by hand */                   /* 0 = all jacks mixed to the speakers, 1-4 = that jack alone */
 
 /* User samples (LXR02Open engine only): mono 16-bit 44.1 kHz, one buffer; sample i starts at offsets[i] and is

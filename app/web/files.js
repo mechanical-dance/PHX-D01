@@ -175,7 +175,7 @@ function drawSide() {
       h('div', { className: 'btns' }, btn('Export…', () => phx.exportPatterns(false), '⌘E'), btn('Export A–H…', () => phx.exportPatterns(true), '⇧⌘E'),
         btn('Import…', 'importPatterns', 'Fills slots from the current one on (⌘I)'))),
     section('Project',
-      h('p', { className: 'cur', textContent: `${state.project || '—'} (${state.projectLayout === 'desktop' ? 'desktop, PROJ00' : 'module, Project00'})` }),
+      h('p', { className: 'cur', textContent: `${state.project || '—'} (${state.projectLayout === 'desktop' ? 'desktop' : 'module'})` }),
       h('p', { className: 'dim', textContent: 'Its kits are the "Project:" bank; ⌘S saves them with the patterns, tempo and samples.' }),
       h('div', { className: 'btns' }, btn('Save', () => phx.save(), '⌘S'), btn('Save project as…', () => phx.saveProjectAs(), '⌥⇧⌘S'),
         btn('Open project…', 'openProject', '⌥⌘O'))),
