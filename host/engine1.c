@@ -15,6 +15,7 @@
 #include "MidiVoiceControl.h"
 #include "MidiMessages.h"
 #include "sequencer.h"
+#include "SampleMemory.h"
 
 const char *lxr_engine_name(void) { return "LXR-1"; }
 
@@ -88,6 +89,12 @@ void lxr1_set_samples(const int16_t *pcm, const uint32_t *offsets, const uint32_
 void lxr_set_samples(const int16_t *pcm, const uint32_t *offsets, const uint32_t *sizes, const uint8_t *loops, int count)
 {
 	lxr1_set_samples(pcm, offsets, sizes, loops, count);
+}
+
+void lxr_sample_limits(uint32_t *max_count, uint32_t *rom_bytes)
+{
+	*max_count = SAMPLE_MAX_COUNT;
+	*rom_bytes = SAMPLE_ROM_SIZE;
 }
 
 static int16_t sat(int32_t v) { return v > 32767 ? 32767 : v < -32768 ? -32768 : (int16_t)v; }

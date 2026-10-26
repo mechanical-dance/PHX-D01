@@ -162,7 +162,8 @@ main { flex: 1; min-height: 260px; display: flex; align-items: center; justify-c
 #saveas button.primary, #loadkit button.primary { border-color: #7a68b0; background: #3a2f5c; }
 #saveas button.danger, #loadkit button.danger { border-color: #b0546a; background: #5c2a36; }
 #saveas p, #loadkit p { margin: 10px 0 0; font-size: 12px; }
-#saveas p.warn, #loadkit p.warn { color: #f0a0b0; }
+#saveas p.warn, #loadkit p.warn, #side p.warn { color: #f0a0b0; }
+#side .skipped { margin: 4px 0; padding-left: 16px; font-size: 11px; max-height: 120px; overflow-y: auto; }
 #saveas input.kitname, #loadkit input.kitname { font-family: ui-monospace, monospace; text-transform: none; }
 
 #loadkit select.kitlist { width: 100%; font-family: ui-monospace, Menlo, monospace; }

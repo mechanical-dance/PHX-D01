@@ -35,6 +35,7 @@ void lxa_mute(int track, int on);         /* 0-6; a muted track still plays when
 typedef struct { const int16_t *pcm; const uint32_t *offsets, *sizes; const uint8_t *loops; int count; } LxaSamples;
 void lxa_samples(const LxaSamples *set);
 int lxa_engine_has_samples(int engine);
+void lxa_sample_limits(uint32_t *max_count, uint32_t *rom_bytes);   /* the sample engine's flash limits, 0 without one */
 
 /* Sequencer. */
 void lxa_pattern(const LxaStep steps[LXA_TRACKS][LXA_MAX_STEPS], int length);

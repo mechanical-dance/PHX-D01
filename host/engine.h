@@ -30,6 +30,8 @@ LXR_API void lxr_set_mod(const LxrMod *m);
 LXR_API void lxr_set_morph(const uint8_t a[LXR_KIT_PARAMS], const uint8_t b[LXR_KIT_PARAMS], uint8_t amount);
 /* Optional (LXR-1 only): user samples, see LxaSamples in audio.h. */
 LXR_API void lxr_set_samples(const int16_t *pcm, const uint32_t *offsets, const uint32_t *sizes, const uint8_t *loops, int count);
+/* Optional (LXR-1 only): the firmware's sample flash limits, SAMPLE_MAX_COUNT and SAMPLE_ROM_SIZE (SampleMemory.h). */
+LXR_API void lxr_sample_limits(uint32_t *max_count, uint32_t *rom_bytes);
 /* LXR-2 kit indexes of the six main oscillator waveforms (drum1-3, snare, cymbal, hihat). */
 extern const int lxr_osc_wave_param[6];
 

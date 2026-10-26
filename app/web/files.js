@@ -1,6 +1,5 @@
 // Right sidebar (kit, pattern, bank and sample files) and the Settings sheet. The native side runs the file panels.
 'use strict';
-const WAVES = ['Sine', 'Tri', 'Saw', 'Rec', 'Noise', 'PWM', 'Crash (LXR-1)'];   // the LXR-2 has 0-5; on the LXR-1 engine 6 is its crash and 7 + n sample n
 const VOICES = ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CYM', 'HIHAT'];
 
 const patternName = i => seq.patterns[i].name || 'PAT-' + SLOTS[i];
@@ -178,19 +177,20 @@ function drawSide() {
   const side = $('side');
   if (!side) return;
   const k = state.kits[state.kit];
-  const sampleEngine = state.sampleEngines?.[state.engine];
-  const samples = state.samples || [];
+  const samples = state.samples || [], report = state.sampleReport || {};
 
   const waves = h('div', { className: 'waves' });
   VOICES.forEach((v, i) => {
-    const opts = WAVES.map((w, j) => [j, w]).concat(samples.map((s, j) => [7 + j, `s${String(j + 1).padStart(2, '0')} ${s.name} (LXR-1)`]));
+    // the waveform menu as the engine has it (edit.js waveName); a value past it is shown as it is
+    const n = sampleEngine() ? 7 + samples.length : 6;
+    const opts = Array.from({ length: n }, (_, j) => [j, j >= 7 ? `${waveName(j)} ${samples[j - 7].name}` : waveName(j)]);
     const cur = state.waves?.[i] ?? 0;
-    if (cur >= 7 + samples.length) opts.push([cur, `sample ${cur - 6} (not loaded)`]);
+    if (cur >= n) opts.push([cur, `${cur >= 7 ? waveName(cur) : cur} (not in this engine's menu)`]);
     waves.append(h('label', {}, v), select(opts, cur, val => post({ cmd: 'wave', voice: i, value: val }), v + ' oscillator waveform'));
   });
 
   const list = h('ol', { className: 'samples' }, samples.map((s, i) =>
-    h('li', { title: s.name }, h('span', { className: 'num', textContent: 's' + String(i + 1).padStart(2, '0') }),
+    h('li', { title: s.name }, h('span', { className: 'num', textContent: sampleShort(i) }),
       h('span', { className: 'nm', textContent: s.name }), h('span', { className: 'dim', textContent: (s.loop ? '⟲ ' : '') + s.sec.toFixed(2) + 's' }))));
 
   side.replaceChildren(
@@ -205,17 +205,21 @@ function drawSide() {
         btn('Import…', 'importPatterns', 'Fills slots from the current one on (⌘I)'))),
     section('Project',
       h('p', { className: 'cur', textContent: `${state.project || '—'} (${state.projectLayout === 'desktop' ? 'desktop' : 'module'})` }),
-      h('p', { className: 'dim', textContent: 'Its kits are the "Project:" bank; ⌘S saves them with the patterns, tempo and samples.' }),
+      h('p', { className: 'dim', textContent: 'Its kits are the "Project:" bank; ⌘S saves them with the patterns and tempo.' }),
       h('div', { className: 'btns' }, btn('Save', () => phx.save(), '⌘S'), btn('Save project as…', () => phx.saveProjectAs(), '⌥⇧⌘S'),
         btn('Open project…', 'openProject', '⌥⌘O'))),
     section('Bank',
       h('p', { className: 'dim', textContent: 'This bank\'s kits as NN-NAME.SND plus patterns A–H as .PAT, ready for the SD card.' }),
       h('div', { className: 'btns' }, btn('Save bank as…', () => phx.saveBank(), '⇧⌘B'), btn('New user bank…', 'newBank', '⇧⌘N'))),
     section('Samples',
-      h('p', { className: 'dim', textContent: sampleEngine ? 'Pick them as oscillator waveforms above.' : 'Samples play on the LXR-1 (open fw) engine only.' }),
+      h('p', { className: 'dim', textContent: (sampleEngine() ? '' : 'Samples play on the LXR-1 engine only. ')
+        + 'Load Samples replaces them with the card\'s samples/, then adds its loops/ (mono 16-bit 44.1 kHz WAV only).' }),
       list,
-      h('div', { className: 'btns' }, btn('Import…', 'importSamples', 'Any audio file, converted to mono 16-bit 44.1 kHz (⇧⌘I)'),
-        samples.length ? btn('Clear', 'clearSamples') : '')),
+      report.failed ? h('p', { className: 'warn', textContent: `${report.failed} Failed` }) : '',
+      report.skipped?.length ? h('details', {}, h('summary', { textContent: `${report.skipped.length} skipped` }),
+        h('ul', { className: 'skipped' }, report.skipped.map(([f, why]) => h('li', { textContent: `${f}: ${why}` })))) : '',
+      h('div', { className: 'btns' }, btn('Load samples', 'loadSamples', 'From this project\'s samples/ and loops/ (⇧⌘I)'),
+        btn('From card…', 'loadSamplesFrom', 'Another card folder, e.g. an SD card (⌥⇧⌘I)'))),
   );
 }
 

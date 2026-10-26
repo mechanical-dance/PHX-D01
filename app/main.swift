@@ -25,7 +25,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var project = userRoot.appendingPathComponent("Projects/Default")   // the project you're in (Files.swift)
     var morphAmount: UInt8 = 0
     var folders: [URL] = []   // kit banks, in the order they were added
-    var samples: [UserSample] = []
+    var samples: [FlashSample] = []   // the sample flash (SampleLoader.swift)
+    var sampleReport: SampleLoader.Report?   // what the last Load Samples did
 
     func applicationDidFinishLaunching(_ note: Notification) {
         buildMenu()
@@ -64,7 +65,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "ready":
             restoreIO()
             startFolder()
-            restoreSamples()
+            restoreSampleFlash()
             sendSeqState(saved: true)
             startTicks()
         case "hit": lxa_hit(int("t"), int("vel"))
@@ -116,8 +117,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "exportPatterns": exportPatterns(d)
         case "importPatterns": importPatterns()
         case "saveBank": saveBank(d)
-        case "importSamples": importSamples()
-        case "clearSamples": clearSamples()
+        case "loadSamples": loadSamples(from: project)
+        case "loadSamplesFrom": loadSamples()
         case "param":
             let i = Int(int("i"))
             guard !kits.isEmpty, i >= 0, i < kitBytes else { break }
@@ -265,8 +266,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
                                 "waves": kits.isEmpty ? [] : waveParams.map { Int(kits[kit].params[$0]) },
                                 "params": kits.isEmpty ? [] : kits[kit].params.map(Int.init),
                                 "sampleEngines": (0..<lxa_engine_count()).map { lxa_engine_has_samples($0) != 0 },
-                                "samples": samples.map { ["name": $0.url.deletingPathExtension().lastPathComponent, "loop": $0.loop,
-                                                          "sec": Double($0.pcm.count) / 44100] }]
+                                "samples": samples.map { ["name": $0.display.map { $0 == 0 ? "…" : String(UnicodeScalar($0)) }.joined(),
+                                                          "loop": $0.loop, "sec": Double($0.pcm.count) / 44100] },
+                                "sampleReport": sampleReport.map { r in
+                                    ["failed": r.failed ?? "", "skipped": (r.samples.skipped.map { ["samples/" + $0.0, $0.1] } + r.loops.skipped.map { ["loops/" + $0.0, $0.1] })]
+                                } ?? [:]]
         js("lxrState", s)
     }
 
@@ -362,7 +366,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
                       item("Import Kits…", "o", [.command, .shift]) { [weak self] in self?.importKits() },
                       item("New User Bank…", "n", [.command, .shift]) { [weak self] in self?.newUserBank() },
                       item("Import Patterns…", "i") { [weak self] in self?.importPatterns() },
-                      item("Import Samples…", "i", [.command, .shift]) { [weak self] in self?.importSamples() },
+                      item("Load Samples", "i", [.command, .shift]) { [weak self] in self.map { $0.loadSamples(from: $0.project) } },
+                      item("Load Samples from Card…", "i", [.command, .option, .shift]) { [weak self] in self?.loadSamples() },
                       .separator(),
                       item("Save Kit As…", "s", [.command, .shift]) { [weak self] in self?.js("phx.saveAs", ["morphed": false]) },
                       item("Save Morph as Kit…", "s", [.command, .option]) { [weak self] in self?.js("phx.saveAs", ["morphed": true]) },

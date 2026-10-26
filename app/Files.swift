@@ -1,7 +1,6 @@
-// Saving and importing in the LXR's own formats (kits .SND, patterns .PAT, banks as SD-card folders) and user samples.
+// Saving and importing in the LXR's own formats (kits .SND, patterns .PAT, banks as SD-card folders) and loading samples (SampleLoader.swift).
 // Layouts follow the LXR-02 firmware's presetManager.c (preset_saveDrumsetSD, preset_writePatternData, PatV03).
 import Cocoa
-import AVFoundation
 
 enum LxrFile {
     static let steps = 64, tracks = 7, bars = 4
@@ -96,28 +95,7 @@ enum LxrFile {
         return (Pattern(name: name, len: len, steps: rows), shuffle / 127 * 0.75)
     }
 
-    // Any audio file to mono 16-bit 44.1 kHz, what the LXR02Open sample loader accepts.
-    static func readSample(_ url: URL) -> [Int16]? {
-        guard let file = try? AVAudioFile(forReading: url),
-              let out = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 44100, channels: 1, interleaved: true),
-              let conv = AVAudioConverter(from: file.processingFormat, to: out),
-              let input = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),
-              (try? file.read(into: input)) != nil else { return nil }
-        conv.downmix = true
-        let cap = AVAudioFrameCount(Double(input.frameLength) * 44100 / file.processingFormat.sampleRate) + 1024
-        guard let output = AVAudioPCMBuffer(pcmFormat: out, frameCapacity: cap) else { return nil }
-        var fed = false
-        var err: NSError?
-        conv.convert(to: output, error: &err) { _, status in
-            if fed { status.pointee = .endOfStream; return nil }
-            fed = true; status.pointee = .haveData; return input
-        }
-        guard err == nil, let ch = output.int16ChannelData else { return nil }
-        return Array(UnsafeBufferPointer(start: ch[0], count: Int(output.frameLength)))
-    }
 }
-
-struct UserSample { let url: URL; let loop: Bool; let pcm: [Int16] }
 
 extension App {
     var waveParams: [Int] {
@@ -369,42 +347,61 @@ extension App {
     }
 
     // ---------- samples (LXR02Open engine) ----------
-    func importSamples() {
-        let p = NSOpenPanel()
-        p.canChooseDirectories = true
-        p.allowsMultipleSelection = true
-        p.message = "Choose audio files or folders. Files in a folder named \"loops\" loop, like the LXR02Open /loops folder."
-        p.beginSheetModal(for: window) { r in
-            guard r == .OK else { return }
-            self.addSamples(p.urls)
+    // Load Samples on the card: the current project's folder, which holds the card layout, or a folder you pick.
+    func loadSamples(from card: URL? = nil) {
+        guard let card else {
+            let p = NSOpenPanel()
+            p.canChooseDirectories = true
+            p.canChooseFiles = false
+            p.message = "Choose the card: the folder that holds samples/ and loops/"
+            p.beginSheetModal(for: window) { r in if r == .OK, let u = p.url { self.loadSamples(from: u) } }
+            return
         }
-    }
-
-    func addSamples(_ urls: [URL], save: Bool = true) {
-        let audio = ["wav", "aif", "aiff", "caf", "mp3", "m4a", "flac"]
-        var files: [URL] = []
-        for u in urls {
-            if u.hasDirectoryPath {
-                let list = (try? FileManager.default.contentsOfDirectory(at: u, includingPropertiesForKeys: nil)) ?? []
-                files += list.filter { audio.contains($0.pathExtension.lowercased()) }
-            } else if audio.contains(u.pathExtension.lowercased()) { files.append(u) }
-        }
-        let have = Set(samples.map(\.url.path))
-        let loaded = files.filter { !have.contains($0.path) }.compactMap { u in
-            LxrFile.readSample(u).map { UserSample(url: u, loop: u.deletingLastPathComponent().lastPathComponent.lowercased() == "loops", pcm: $0) }
-        }
-        // the firmware's order: /samples sorted by name, then /loops sorted by name
-        samples = (samples + loaded).sorted { ($0.loop ? 1 : 0, $0.url.lastPathComponent.lowercased()) < ($1.loop ? 1 : 0, $1.url.lastPathComponent.lowercased()) }
-        samples = Array(samples.prefix(120))
+        var count: UInt32 = 0, bytes: UInt32 = 0
+        lxa_sample_limits(&count, &bytes)
+        guard count > 0 else { alert("No sample engine", "The LXR-1 engine (engine-lxr1.dylib) isn't installed."); return }
+        let (flash, report) = SampleLoader.load(card: card, current: samples, maxCount: Int(count), romBytes: Int(bytes))
+        samples = flash
+        sampleReport = report
+        saveSampleFlash()
         sendSamples()
-        if save { saveSampleList() }
+        js("lxrToast", ["text": report.failed.map { "\($0) Failed" } ?? "Loaded \(report.samples.installed.count) samples, \(report.loops.installed.count) loops"])
     }
 
-    func clearSamples() { samples = []; sendSamples(); saveSampleList() }
-    func saveSampleList() { UserDefaults.standard.set(samples.map(\.url.path), forKey: "samples") }
-    func restoreSamples() {
-        let paths = UserDefaults.standard.stringArray(forKey: "samples") ?? []
-        if !paths.isEmpty { addSamples(paths.map { URL(fileURLWithPath: $0) }.filter { FileManager.default.fileExists(atPath: $0.path) }, save: false) }
+    // The sample flash keeps its contents across restarts: count, then per sample loop flag, display name, frames, PCM.
+    var sampleFlashURL: URL { userRoot.appendingPathComponent("SampleFlash.bin") }
+    func saveSampleFlash() {
+        var d = Data("PHXF".utf8)
+        func u32(_ v: Int) { withUnsafeBytes(of: UInt32(v).littleEndian) { d.append(contentsOf: $0) } }
+        u32(samples.count)
+        for s in samples {
+            d.append(s.loop ? 1 : 0); d.append(contentsOf: s.display); u32(s.pcm.count)
+            s.pcm.withUnsafeBytes { d.append(contentsOf: $0) }
+        }
+        try? FileManager.default.createDirectory(at: userRoot, withIntermediateDirectories: true)
+        try? d.write(to: sampleFlashURL)
+    }
+    func restoreSampleFlash() {
+        guard let d = try? Data(contentsOf: sampleFlashURL), d.prefix(4) == Data("PHXF".utf8) else { return }
+        let b = [UInt8](d)
+        var at = 4
+        func u32() -> Int? {
+            guard at + 4 <= b.count else { return nil }
+            defer { at += 4 }
+            return Int(b[at]) | Int(b[at + 1]) << 8 | Int(b[at + 2]) << 16 | Int(b[at + 3]) << 24
+        }
+        guard let n = u32() else { return }
+        var out: [FlashSample] = []
+        for _ in 0..<n {
+            guard at + 9 <= b.count else { return }
+            let loop = b[at] != 0, display = Array(b[at + 1..<at + 9]); at += 9
+            guard let frames = u32(), at + frames * 2 <= b.count else { return }
+            let pcm = stride(from: at, to: at + frames * 2, by: 2).map { Int16(bitPattern: UInt16(b[$0]) | UInt16(b[$0 + 1]) << 8) }
+            at += frames * 2
+            out.append(FlashSample(display: display, loop: loop, pcm: pcm))
+        }
+        samples = out
+        sendSamples()
     }
 
     // One immutable set per change; sets are kept so the audio thread never sees freed memory.
@@ -434,8 +431,8 @@ extension App {
 
 // ---------- projects ----------
 // There is always a current project: Projects/Default is made on first launch. A project folder holds phx.json
-// (layout, patterns, tempo, swing), samples/ and loops/, and a card folder that is also the project's own bank:
-// PROJ00/ (module: up to 128 kits; desktop: 64 kits plus the patterns as .PAT), with PRJ.NFO, the name. To the desktop firmware missing files just mean an incomplete project, and GLO.CFG is left out
+// (layout, patterns, tempo, swing), a card folder that is also the project's own bank:
+// PROJ00/ (module: up to 128 kits; desktop: 64 kits plus the patterns as .PAT), with PRJ.NFO, the name. Like a card root it can hold samples/ and loops/ for Load Samples. To the desktop firmware missing files just mean an incomplete project, and GLO.CFG is left out
 // so copying a project to a card keeps the card's global settings. No autosave: there is no undo.
 extension App {
     var projectsRoot: URL { userRoot.appendingPathComponent("Projects") }
@@ -498,18 +495,12 @@ extension App {
         select(cur.flatMap { c in kits.firstIndex { $0.dir.path == c.0 && $0.file == c.1 } } ?? kits.firstIndex { $0.dir.path == projectCard.path } ?? 0)
     }
 
-    // phx.json, samples, and for the desktop layout the card's .PAT (slots 00-07 only: others may hold the hardware's) and PRJ.NFO.
+    // phx.json, and for the desktop layout the card's .PAT (slots 00-07 only: others may hold the hardware's) and PRJ.NFO.
     func writeProject(_ d: [String: Any], to dir: URL) throws {
         let fm = FileManager.default, lay = layout(of: dir)
         var meta = (try? JSONSerialization.jsonObject(with: Data((d["json"] as? String ?? "{}").utf8))) as? [String: Any] ?? [:]
         meta["layout"] = lay
         try JSONSerialization.data(withJSONObject: meta, options: [.prettyPrinted, .sortedKeys]).write(to: dir.appendingPathComponent("phx.json"))
-        for smp in samples where !smp.url.path.hasPrefix(dir.path + "/") {
-            let sub = dir.appendingPathComponent(smp.loop ? "loops" : "samples")
-            try fm.createDirectory(at: sub, withIntermediateDirectories: true)
-            let dest = sub.appendingPathComponent(smp.url.lastPathComponent)
-            if !fm.fileExists(atPath: dest.path) { try fm.copyItem(at: smp.url, to: dest) }
-        }
         guard let card = App.cardFolder(in: dir) else { return }
         try Data(LxrFile.name8(dir.lastPathComponent)).write(to: card.appendingPathComponent("PRJ.NFO"))
         guard lay == "desktop" else { return }
@@ -537,7 +528,7 @@ extension App {
         js("lxrToast", ["text": "Saved " + what.joined(separator: " + ")])
     }
 
-    // A copy of the current project (its kits, samples and this state) under a new name, which becomes current.
+    // A copy of the current project (its kits and this state) under a new name, which becomes current.
     func saveProjectAs(_ d: [String: Any]) {
         let fm = FileManager.default
         try? fm.createDirectory(at: projectsRoot, withIntermediateDirectories: true)
@@ -599,9 +590,6 @@ extension App {
         } else if !fm.fileExists(atPath: dir.appendingPathComponent("phx.json").path) && App.cardFolder(in: dir) == nil {
             alert("Not a project", "\(dir.lastPathComponent) has no phx.json and no PROJnn folder."); return
         }
-        // the project's samples replace the current ones
-        samples = []
-        addSamples(["samples", "loops"].map { dir.appendingPathComponent($0) }.filter { fm.fileExists(atPath: $0.path) })
         // patterns: the project's own data, else the card's .PAT files (slots A-H)
         if let json = try? String(contentsOf: dir.appendingPathComponent("phx.json"), encoding: .utf8), json.contains("\"patterns\"") {
             web.evaluateJavaScript("lxrProject(\(json))")

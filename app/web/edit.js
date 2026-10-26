@@ -14,6 +14,13 @@ Object.assign(state, { mode: 'load', voice: 0, page: 0, sub: 0, shift: false, dr
 // Stored after the 247 kit params: 18 targets, 18 amounts, 18 sources, slot = voice * 3 + a/b/c. A target is an index
 // into MODULE_TARGETS (modtargets.js, from the module firmware), whose voice blocks run v/o ... mrp (morph).
 const MATRIX = KIT_PARAMS, SRC_KIND = 100, DST_KIND = 101;
+// Oscillator waveforms on the LXR-1 engine: kit values 0-5 as on the LXR-2 (5, PWM, plays as Rec), 6 the crash, 7 + i
+// sample i (host/engine1.c), up to the samples loaded (LXR02Open menu.c, MENU_WAVEFORM). The kit indexes are engine1.c's waves[].
+const WAVE_KIND = 102, SAMPLE_WAVES = new Set([1, 2, 3, 4, 6, 7, 20, 21, 22, 23, 24, 25, 26]);
+const sampleEngine = () => !!state.sampleEngines?.[state.engine];
+// menu_formatSampleShortName: s01-s99, then sA0, sA1...
+const sampleShort = i => i + 1 <= 99 ? 's' + String(i + 1).padStart(2, '0') : 's' + String.fromCharCode(65 + Math.floor((i - 99) / 10)) + ((i - 99) % 10);
+const waveName = v => v < 6 ? LXR_PAGES.menus[2][v] : v === 6 ? 'Cym' : sampleShort(v - 7);
 const SOURCES = ['cv1', 'cv2', 'cv3', 'cv4', 'cv5', 'lf1', 'lf2', 'lf3', 'lf4', 'lf5', 'lf6', 'ac1', 'ac2', 'ac3', 'ac4', 'ac5', 'ac6'];
 const TARGET_BLOCKS = (() => {   // per voice: [0 (off), its target indexes]
   const blocks = [];
@@ -40,6 +47,7 @@ function pageSlots(voice, page) {
   const slots = page === FX_PAGE ? LXR_PAGES.fx[Math.min(state.params[FX_TYPE] ?? 0, LXR_PAGES.fx.length - 1)] : LXR_PAGES.pages[v][page];
   let out = slots.map(([s, , l, p, t]) => {
     if (voice === 6 && p === 60) return ['d2', 'Decay open', 61, t];
+    if (SAMPLE_WAVES.has(p) && sampleEngine()) return [s, l, p, WAVE_KIND];
     return p > 0 && p < KIT_PARAMS ? [s, l, p, t] : null;
   });
   if (state.hw === MODULE && (MODULE_KEEP[page] || MODULE_DROP[page])) {
@@ -61,6 +69,7 @@ function range(t) {
   if (kind === 9) return [1, 6];
   if (kind === 15) return [0, 100];
   if (t === SRC_KIND) return [0, SOURCES.length - 1];
+  if (t === WAVE_KIND) return [0, 6 + (state.samples || []).length];
   if (t === DST_KIND) return [0, (TARGET_BLOCKS[Math.min(state.voice, 5)]?.length || 1) - 1];   // a position in the voice's list
   if (kind === 0) return [0, 255];
   return [0, 127];
@@ -69,6 +78,7 @@ function showValue(v, t) {
   const kind = t & 0xff, menu = t >> 8;
   if (t === SRC_KIND) return SOURCES[v] ?? String(v);
   if (t === DST_KIND) return targetName(v);
+  if (t === WAVE_KIND) return waveName(v);
   if (kind === 3) return LXR_PAGES.menus[menu]?.[v] ?? String(v);
   if (kind === 4) return (v - 63 > 0 ? '+' : '') + (v - 63);
   if (kind === 6 || kind === 11) return v ? 'on' : 'off';
@@ -88,7 +98,11 @@ function editRows() {
     : state.page === LFO_PAGE ? `LFO${Math.min(state.voice, 5) + 1} ${voice}` : `${voice} ${PAGE_NAMES[state.page]}`;
   const head = pad(what, 15) + mark;
   const f = slots[state.knobFocus];
-  if (state.detail && f) return [pad(f[1], 16), pad(showValue(state.params[f[2]] ?? 0, f[3]), 16)];
+  if (state.detail && f) {
+    // menu.c: a sample's display name at column 0, its short name at column 13
+    const v = state.params[f[2]] ?? 0, smp = f[3] === WAVE_KIND && v >= 7 ? state.samples?.[v - 7] : null;
+    return [pad(f[1], 16), smp ? pad(smp.name, 13) + pad(sampleShort(v - 7), 3) : pad(showValue(v, f[3]), 16)];
+  }
   return Date.now() < state.paramUntil
     ? [names.map(n => pad(n, 4)).join(''), vals.map(v => pad(v, 4)).join('')]
     : [head, names.map(n => pad(n, 4)).join('')];
