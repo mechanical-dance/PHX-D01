@@ -21,6 +21,15 @@ function sendPattern() {
   post({ cmd: 'savePatterns', json: JSON.stringify({ patterns: seq.patterns, slot: seq.slot, bpm: seq.bpm, swing: seq.swing }) });
 }
 function sendTempo() { post({ cmd: 'tempo', bpm: seq.bpm, swing: seq.swing }); }
+window.lxrImportPatterns = d => {
+  d.patterns.forEach((p, i) => {
+    const slot = seq.slot + i;
+    if (slot >= SLOTS.length) return;
+    seq.patterns[slot] = { name: p.name, len: p.len, steps: p.steps };
+  });
+  if (d.patterns.length) seq.swing = d.swing;
+  sendPattern(); sendTempo(); drawSeq();
+};
 window.seqToggle = () => { seq.playing = !seq.playing; post({ cmd: 'transport', on: seq.playing ? 1 : 0 }); if (!seq.playing) seq.playhead = -1; drawSeq(); };
 
 // Called by the host: saved patterns, device lists.
@@ -131,18 +140,22 @@ function drawSeq() {
   }
   piano.style.width = white * 22 + 'px';
 
-  const io = seq.io;
-  const ioRow = h('div', { className: 'row io' },
-    h('label', {}, 'Audio out ', select([[-1, 'System default'], ...io.audioOuts.map((n, i) => [i, n])], io.audioOut, v => { io.audioOut = v; io.audioLayout = [2, 0]; sendAudioOut(); drawSeq(); }, 'Audio output')),
-    h('label', {}, layoutSelect()),
-    h('label', {}, 'MIDI out ', select([[-1, io.midiOuts.length ? 'None (virtual port only)' : 'Virtual port "PHX-D01"'], ...io.midiOuts.map((n, i) => [i, n])], io.midiOut, v => { io.midiOut = v; post({ cmd: 'midiOut', i: v }); }, 'MIDI output')),
-    h('label', {}, select([[0, 'Channel per track'], [1, 'One channel, drum notes']], io.midiMode, v => { io.midiMode = v; post({ cmd: 'midiMode', mode: v, ch: io.midiCh }); drawSeq(); }, 'MIDI mode')),
-    h('label', {}, io.midiMode === 0 ? 'from ch ' : 'ch ', select(Array.from({ length: 16 }, (_, i) => [i, String(i + 1)]), io.midiCh, v => { io.midiCh = v; post({ cmd: 'midiMode', mode: io.midiMode, ch: v }); drawSeq(); }, 'MIDI channel')),
-    h('label', {}, 'MIDI in ', select([[-1, 'None'], ...io.midiIns.map((n, i) => [i, n])], io.midiIn, v => { io.midiIn = v; post({ cmd: 'midiIn', i: v }); }, 'MIDI input')),
-    h('button', { textContent: '↻', title: 'Rescan audio and MIDI devices', onclick: () => post({ cmd: 'rescan' }) }),
-  );
-  root.replaceChildren(transport, grid, h('div', { className: 'row' }, h('span', { className: 'dim', textContent: `Piano → ${TRIGGERS[seq.track]}  ` }), piano), ioRow);
+  root.replaceChildren(transport, grid, h('div', { className: 'row' }, h('span', { className: 'dim', textContent: `Piano → ${TRIGGERS[seq.track]}  ` }), piano));
+  window.drawPrefs?.();
   markPlayhead();
+}
+// Audio and MIDI I/O, shown in Settings (⌘,).
+function ioRows() {
+  const io = seq.io;
+  return h('div', { className: 'row io' },
+    h('label', {}, 'Audio out ', select([[-1, 'System default'], ...io.audioOuts.map((n, i) => [i, n])], io.audioOut, v => { io.audioOut = v; io.audioLayout = [2, 0]; sendAudioOut(); drawSeq(); }, 'Audio output')),
+    h('label', {}, 'Output layout ', layoutSelect()),
+    h('label', {}, 'MIDI out ', select([[-1, io.midiOuts.length ? 'None (virtual port only)' : 'Virtual port "PHX-D01"'], ...io.midiOuts.map((n, i) => [i, n])], io.midiOut, v => { io.midiOut = v; post({ cmd: 'midiOut', i: v }); }, 'MIDI output')),
+    h('label', {}, 'MIDI mode ', select([[0, 'Channel per track'], [1, 'One channel, drum notes']], io.midiMode, v => { io.midiMode = v; post({ cmd: 'midiMode', mode: v, ch: io.midiCh }); drawSeq(); }, 'MIDI mode')),
+    h('label', {}, io.midiMode === 0 ? 'First channel ' : 'Channel ', select(Array.from({ length: 16 }, (_, i) => [i, String(i + 1)]), io.midiCh, v => { io.midiCh = v; post({ cmd: 'midiMode', mode: io.midiMode, ch: v }); drawSeq(); }, 'MIDI channel')),
+    h('label', {}, 'MIDI in ', select([[-1, 'None'], ...io.midiIns.map((n, i) => [i, n])], io.midiIn, v => { io.midiIn = v; post({ cmd: 'midiIn', i: v }); }, 'MIDI input')),
+    h('button', { textContent: '↻ Rescan devices', title: 'Rescan audio and MIDI devices', onclick: () => post({ cmd: 'rescan' }) }),
+  );
 }
 // Stereo mix on any channel pair, or the 4 jacks on 4 channels (main L, main R, out2 L, out2 R) when the device has them.
 function layoutSelect() {

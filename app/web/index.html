@@ -18,10 +18,16 @@
     <input id="morph" type="range" min="0" max="255" value="0"> → <select id="mtg" aria-label="Morph target"></select></label>
   <button id="seqbtn" aria-pressed="true" title="Show or hide the pattern editor">Sequencer</button>
   <span id="hint"></span>
+  <button id="sidebtn" aria-pressed="true" title="Files and samples (⌘\)">Files</button>
 </header>
-<main><svg id="panel" aria-label="Front panel"></svg></main>
+<div id="work">
+  <main><svg id="panel" aria-label="Front panel"></svg></main>
+  <aside id="side" aria-label="Files"></aside>
+</div>
 <section id="seq" aria-label="Sequencer"></section>
 <script src="panel.js"></script>
 <script src="seq.js"></script>
+<script src="files.js"></script>
+<dialog id="prefs" aria-label="Settings"></dialog>
 </body>
 </html>

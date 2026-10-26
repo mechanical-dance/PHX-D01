@@ -1,0 +1,91 @@
+// Right sidebar (kit, pattern, bank and sample files) and the Settings sheet. The native side runs the file panels.
+'use strict';
+const WAVES = ['Sine', 'Tri', 'Saw', 'Rec', 'Noise', 'PWM', 'Crash'];   // LXR-2 values 0-6; samples are 7 + n
+const VOICES = ['DRUM1', 'DRUM2', 'DRUM3', 'SNARE', 'CYM', 'HIHAT'];
+
+const patternName = i => seq.patterns[i].name || 'PAT-' + SLOTS[i];
+const patternMsg = p => ({ name: p.name, len: p.len, steps: p.steps });
+
+window.phx = {
+  sidebar(on) {
+    const side = $('side'), show = on ?? side.hidden;
+    side.hidden = !show;
+    $('sidebtn').setAttribute('aria-pressed', String(show));
+    try { localStorage.setItem('sideShown', show ? '1' : '0'); } catch (e) { /* per-viewer nicety only */ }
+  },
+  sequencer() { $('seqbtn').click(); },
+  prefs() { const d = $('prefs'); if (d.open) d.close(); else { drawPrefs(); d.showModal(); } },
+  exportPatterns(all) {
+    const slots = all ? [...SLOTS].map((_, i) => i) : [seq.slot];
+    post({ cmd: 'exportPatterns', first: all ? 0 : seq.slot, swing: seq.swing,
+      patterns: slots.map(i => ({ ...patternMsg(seq.patterns[i]), name: patternName(i) })) });
+  },
+  saveBank() {
+    post({ cmd: 'saveBank', swing: seq.swing, patterns: seq.patterns.map((p, i) => ({ ...patternMsg(p), name: patternName(i) })) });
+  },
+};
+
+window.drawPrefs = () => {
+  const d = $('prefs');
+  if (!d.open && d.childElementCount) return;
+  d.replaceChildren(
+    h('h2', { textContent: 'Settings' }),
+    ioRows(),
+    h('div', { className: 'row end' }, h('button', { textContent: 'Done', onclick: () => d.close() })),
+  );
+};
+
+function section(title, ...kids) { return h('section', {}, h('h3', { textContent: title }), ...kids); }
+function btn(text, cmd, title = '') { return h('button', { textContent: text, title, onclick: typeof cmd === 'function' ? cmd : () => post({ cmd }) }); }
+
+function drawSide() {
+  const side = $('side');
+  if (!side) return;
+  const k = state.kits[state.kit];
+  const sampleEngine = state.sampleEngines?.[state.engine];
+  const samples = state.samples || [];
+
+  const waves = h('div', { className: 'waves' });
+  VOICES.forEach((v, i) => {
+    const opts = WAVES.map((w, j) => [j, w]).concat(samples.map((s, j) => [7 + j, `s${String(j + 1).padStart(2, '0')} ${s.name}`]));
+    const cur = state.waves?.[i] ?? 0;
+    if (cur >= 7 + samples.length) opts.push([cur, `sample ${cur - 6} (not loaded)`]);
+    waves.append(h('label', {}, v), select(opts, cur, val => post({ cmd: 'wave', voice: i, value: val }), v + ' oscillator waveform'));
+  });
+
+  const list = h('ol', { className: 'samples' }, samples.map((s, i) =>
+    h('li', { title: s.name }, h('span', { className: 'num', textContent: 's' + String(i + 1).padStart(2, '0') }),
+      h('span', { className: 'nm', textContent: s.name }), h('span', { className: 'dim', textContent: (s.loop ? '⟲ ' : '') + s.sec.toFixed(2) + 's' }))));
+
+  side.replaceChildren(
+    section('Kit',
+      h('p', { className: 'cur', textContent: k ? `${k.bank} / ${k.name}${k.edited ? ' •' : ''}` : 'No kit' }),
+      h('div', { className: 'btns' }, btn('Save', 'saveKit', '⌘S'), btn('Save as…', 'saveKitAs', '⇧⌘S'),
+        btn('Save morph as kit…', 'saveMorph', 'What you hear: the kit morphed toward the target (⌥⌘S)'), btn('Import kits…', 'importKits', '⇧⌘O')),
+      h('h4', { textContent: 'Oscillators' }), waves),
+    section('Pattern',
+      h('p', { className: 'cur', textContent: `${SLOTS[seq.slot]}: ${patternName(seq.slot)}` }),
+      h('div', { className: 'btns' }, btn('Export…', () => phx.exportPatterns(false), '⌘E'), btn('Export A–H…', () => phx.exportPatterns(true), '⇧⌘E'),
+        btn('Import…', 'importPatterns', 'Fills slots from the current one on (⌘I)'))),
+    section('Bank',
+      h('p', { className: 'dim', textContent: 'This bank\'s kits as NN-NAME.SND plus patterns A–H as .PAT, ready for the SD card.' }),
+      h('div', { className: 'btns' }, btn('Save bank as…', () => phx.saveBank(), '⇧⌘B'))),
+    section('Samples',
+      h('p', { className: 'dim', textContent: sampleEngine ? 'Pick them as oscillator waveforms above.' : 'Samples play on the LXR-1 (open fw) engine only.' }),
+      list,
+      h('div', { className: 'btns' }, btn('Import…', 'importSamples', 'Any audio file, converted to mono 16-bit 44.1 kHz (⇧⌘I)'),
+        samples.length ? btn('Clear', 'clearSamples') : '')),
+  );
+}
+
+// Redraw after the host's state and after sequencer changes (slot names).
+const baseState = window.lxrState;
+window.lxrState = s => { baseState(s); drawSide(); };
+const baseDrawSeq = drawSeq;
+drawSeq = (...a) => { baseDrawSeq(...a); drawSide(); };
+
+$('sidebtn').onclick = () => phx.sidebar();
+let sideShown = true;
+try { sideShown = localStorage.getItem('sideShown') !== '0'; } catch (e) { /* default: shown */ }
+phx.sidebar(sideShown);
+drawSide();

@@ -3,7 +3,7 @@
 import Cocoa
 import WebKit
 
-struct Kit { let name: String; let file: String; let bank: String; let params: [UInt8] }
+struct Kit { var name: String; let file: String; let bank: String; var params: [UInt8]; let dir: URL; var edited = false }
 
 final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var window: NSWindow!
@@ -13,6 +13,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var morphTarget = 0
     var morphAmount: UInt8 = 0
     var folders: [URL] = []   // kit banks, in the order they were added
+    var samples: [UserSample] = []
 
     func applicationDidFinishLaunching(_ note: Notification) {
         buildMenu()
@@ -51,6 +52,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         case "ready":
             restoreIO()
             startFolder()
+            restoreSamples()
             sendSeqState(saved: true)
             startTicks()
         case "hit": lxa_hit(int("t"), int("vel"))
@@ -85,6 +87,16 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             midi_set_mode(int("mode"), int("ch"))
             UserDefaults.standard.set([int("mode"), int("ch")], forKey: "midiMode")
         case "rescan": sendSeqState(saved: false)
+        case "saveKit": saveKit()
+        case "saveKitAs": saveKitAs(morphed: false)
+        case "saveMorph": saveKitAs(morphed: true)
+        case "importKits": importKits()
+        case "wave": setWave(voice: Int(int("voice")), value: Int(int("value")))
+        case "exportPatterns": exportPatterns(d)
+        case "importPatterns": importPatterns()
+        case "saveBank": saveBank(d)
+        case "importSamples": importSamples()
+        case "clearSamples": clearSamples()
         default: break
         }
     }
@@ -117,7 +129,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             var params = [UInt8](repeating: 0, count: Int(LXR_KIT_PARAMS))
             var name = [CChar](repeating: 0, count: 9)
             guard lxr_read_kit(url.appendingPathComponent(f).path, &params, &name) == 0 else { return nil }
-            return Kit(name: String(cString: name).trimmingCharacters(in: .whitespaces), file: f, bank: url.lastPathComponent, params: params)
+            return Kit(name: String(cString: name).trimmingCharacters(in: .whitespaces), file: f, bank: url.lastPathComponent, params: params, dir: url)
         }
     }
 
@@ -151,21 +163,28 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     // The selected kit, morphed toward the morph target by the firmware's rule.
     func applyKit() {
         guard !kits.isEmpty else { return }
+        heardParams().withUnsafeBufferPointer { lxa_load($0.baseAddress) }
+    }
+
+    func heardParams() -> [UInt8] {
         var p = kits[kit].params
         if morphAmount > 0, morphTarget >= 0, morphTarget < kits.count {
             var out = p
             lxr_morph_kit(kits[kit].params, kits[morphTarget].params, morphAmount, &out)
             p = out
         }
-        p.withUnsafeBufferPointer { lxa_load($0.baseAddress) }
+        return p
     }
 
     func sendState() {
         let engines = (0..<lxa_engine_count()).map { String(cString: lxa_engine_name($0)) }
         let s: [String: Any] = ["engines": engines, "kit": kit,
-                                "kits": kits.map { ["name": $0.name, "file": $0.file, "bank": $0.bank] }]
-        guard let json = try? JSONSerialization.data(withJSONObject: s), let str = String(data: json, encoding: .utf8) else { return }
-        web.evaluateJavaScript("lxrState(\(str))")
+                                "kits": kits.map { ["name": $0.name, "file": $0.file, "bank": $0.bank, "edited": $0.edited] },
+                                "waves": kits.isEmpty ? [] : waveParams.map { Int(kits[kit].params[$0]) },
+                                "sampleEngines": (0..<lxa_engine_count()).map { lxa_engine_has_samples($0) != 0 },
+                                "samples": samples.map { ["name": $0.url.deletingPathExtension().lastPathComponent, "loop": $0.loop,
+                                                          "sec": Double($0.pcm.count) / 44100] }]
+        js("lxrState", s)
     }
 
     // Pattern from the page: 7 tracks of [velocity, note] per step.
@@ -234,16 +253,49 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
 
     func buildMenu() {
         let main = NSMenu()
-        let appItem = NSMenuItem()
-        main.addItem(appItem)
-        let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Open Kit Folder…", action: #selector(openMenu), keyEquivalent: "o")
-        appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit PHX-D01", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        appItem.submenu = appMenu
+        func menu(_ title: String, _ items: [NSMenuItem]) {
+            let item = NSMenuItem()
+            let m = NSMenu(title: title)
+            items.forEach(m.addItem)
+            item.submenu = m
+            main.addItem(item)
+        }
+        func item(_ title: String, _ key: String, _ mods: NSEvent.ModifierFlags = .command, _ run: @escaping () -> Void) -> NSMenuItem {
+            let i = NSMenuItem(title: title, action: #selector(runMenu(_:)), keyEquivalent: key)
+            i.keyEquivalentModifierMask = mods
+            i.target = self
+            i.representedObject = run
+            return i
+        }
+        func page(_ call: String) -> () -> Void { { [weak self] in self?.web.evaluateJavaScript(call) } }
+        menu("PHX-D01", [item("Settings…", ",", .command, page("phx.prefs()")), .separator(),
+                         NSMenuItem(title: "Hide PHX-D01", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"),
+                         NSMenuItem(title: "Quit PHX-D01", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")])
+        menu("File", [item("Open Kit Folder…", "o") { [weak self] in self?.chooseFolder() },
+                      item("Import Kits…", "o", [.command, .shift]) { [weak self] in self?.importKits() },
+                      item("Import Patterns…", "i") { [weak self] in self?.importPatterns() },
+                      item("Import Samples…", "i", [.command, .shift]) { [weak self] in self?.importSamples() },
+                      .separator(),
+                      item("Save Kit", "s") { [weak self] in self?.saveKit() },
+                      item("Save Kit As…", "s", [.command, .shift]) { [weak self] in self?.saveKitAs(morphed: false) },
+                      item("Save Morph as Kit…", "s", [.command, .option]) { [weak self] in self?.saveKitAs(morphed: true) },
+                      .separator(),
+                      item("Export Pattern…", "e", .command, page("phx.exportPatterns(false)")),
+                      item("Export All Patterns…", "e", [.command, .shift], page("phx.exportPatterns(true)")),
+                      item("Save Bank As…", "b", [.command, .shift], page("phx.saveBank()")),
+                      .separator(),
+                      NSMenuItem(title: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")])
+        // standard editing keys for the text fields in the page
+        menu("Edit", [NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z"),
+                      NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"),
+                      NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"),
+                      NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"),
+                      NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")])
+        menu("View", [item("Sidebar", "\\", .command, page("phx.sidebar()")),
+                      item("Sequencer", "j", .command, page("phx.sequencer()"))])
         NSApp.mainMenu = main
     }
-    @objc func openMenu() { chooseFolder() }
+    @objc func runMenu(_ sender: NSMenuItem) { (sender.representedObject as? () -> Void)?() }
 }
 
 let app = NSApplication.shared
