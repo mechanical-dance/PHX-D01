@@ -98,8 +98,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             UserDefaults.standard.set([int("mode"), int("ch")], forKey: "midiMode")
         case "rescan": sendSeqState(saved: false)
         case "saveKit": saveKit()
-        case "saveKitAs": saveKitAs(morphed: false)
-        case "saveMorph": saveKitAs(morphed: true)
+        case "saveKitAs": js("phx.saveAs", ["morphed": false])
+        case "saveMorph": js("phx.saveAs", ["morphed": true])
+        case "saveKitTo": saveKitTo(d)
+        case "saveKitElsewhere": saveKitAs(morphed: d["morphed"] as? Bool ?? false)
+        case "renameBank": renameBank(d)
         case "importKits": importKits()
         case "newBank": newUserBank()
         case "saveProject": saveProject(d)
@@ -128,12 +131,15 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         paths += args.map { ($0 as NSString).expandingTildeInPath }
         // Erica's factory kits ship inside the app but are played from a copy in the user banks, so every bank is a
         // real folder: saves never land in the bundle, which a rebuild or update replaces.
-        let factory = userRoot.appendingPathComponent("Banks/Erica-factory")
-        if !FileManager.default.fileExists(atPath: factory.path), let src = Bundle.main.resourceURL?.appendingPathComponent("Erica-factory") {
+        // (copied once; after that it is the user's folder, renamed or not)
+        let ud = UserDefaults.standard
+        let factory = ud.string(forKey: "factoryBank").map { URL(fileURLWithPath: $0) } ?? userRoot.appendingPathComponent("Banks/Erica-factory")
+        if FileManager.default.fileExists(atPath: factory.path) { ud.set(true, forKey: "factoryCopied") }
+        else if !ud.bool(forKey: "factoryCopied"), let src = Bundle.main.resourceURL?.appendingPathComponent("Erica-factory") {
             try? FileManager.default.createDirectory(at: factory.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? FileManager.default.copyItem(at: src, to: factory)
+            if (try? FileManager.default.copyItem(at: src, to: factory)) != nil { ud.set(true, forKey: "factoryCopied") }
         }
-        folders.append(factory)
+        if FileManager.default.fileExists(atPath: factory.path) { folders.append(factory) }
         folders += userBanks().filter { $0.path != factory.path }
         paths = paths.filter { !$0.hasPrefix(Bundle.main.bundlePath) }
         for path in paths where FileManager.default.fileExists(atPath: path) && !folders.contains(where: { $0.path == path }) {
@@ -170,8 +176,18 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         return kits
     }
 
-    func reloadBanks() {
-        kits = folders.flatMap(App.readKits)
+    // Re-read every bank, keeping unsaved edits (moved: a renamed bank's old path -> new path).
+    func reloadBanks(moved: (URL, URL)? = nil) {
+        func key(_ k: Kit) -> String {
+            var d = k.dir.path
+            if let (a, b) = moved, d == a.path { d = b.path }
+            return d + "/" + k.file
+        }
+        let edits = Dictionary(kits.filter(\.edited).map { (key($0), $0) }, uniquingKeysWith: { a, _ in a })
+        kits = folders.flatMap(App.readKits).map { k in
+            guard let e = edits[k.dir.path + "/" + k.file] else { return k }
+            var k = k; k.name = e.name; k.params = e.params; k.edited = true; return k
+        }
         UserDefaults.standard.set(folders.map(\.path).filter { !$0.hasPrefix(Bundle.main.bundlePath) }, forKey: "kitFolders")
     }
 
@@ -319,8 +335,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
                       item("Import Samples…", "i", [.command, .shift]) { [weak self] in self?.importSamples() },
                       .separator(),
                       item("Save Kit", "s") { [weak self] in self?.saveKit() },
-                      item("Save Kit As…", "s", [.command, .shift]) { [weak self] in self?.saveKitAs(morphed: false) },
-                      item("Save Morph as Kit…", "s", [.command, .option]) { [weak self] in self?.saveKitAs(morphed: true) },
+                      item("Save Kit As…", "s", [.command, .shift]) { [weak self] in self?.js("phx.saveAs", ["morphed": false]) },
+                      item("Save Morph as Kit…", "s", [.command, .option]) { [weak self] in self?.js("phx.saveAs", ["morphed": true]) },
                       .separator(),
                       item("Export Pattern…", "e", .command, page("phx.exportPatterns(false)")),
                       item("Export All Patterns…", "e", [.command, .shift], page("phx.exportPatterns(true)")),

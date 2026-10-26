@@ -148,3 +148,19 @@ main { flex: 1; min-height: 260px; display: flex; align-items: center; justify-c
   background: #1f1b2a; color: #e8e2f5; border: 1px solid #5b4d80; border-radius: 6px; font: 12px ui-monospace, monospace;
   opacity: 0; transition: opacity .15s, transform .15s; pointer-events: none; z-index: 50; }
 #toast.show { opacity: 1; transform: translateX(-50%); }
+
+#saveas { background: var(--bar); color: var(--ink); border: 1px solid var(--bar-line); border-radius: 10px; padding: 16px 18px; width: 440px; }
+#saveas::backdrop { background: rgb(0 0 0 / .45); }
+#saveas h2 { margin: 0 0 12px; font-size: 15px; }
+#saveas .grid { display: grid; grid-template-columns: 52px 1fr; gap: 8px 10px; align-items: center; }
+#saveas .row { display: flex; gap: 6px; align-items: center; }
+#saveas .row.end { margin-top: 14px; }
+#saveas .grow { flex: 1; }
+#saveas select, #saveas input, #saveas button { font: inherit; color: var(--ink); background: #1f2123; border: 1px solid var(--bar-line); border-radius: 6px; padding: 4px 8px; }
+#saveas .row > select, #saveas .row > input { flex: 1; min-width: 0; }
+#saveas button { cursor: pointer; }
+#saveas button.primary { border-color: #7a68b0; background: #3a2f5c; }
+#saveas button.danger { border-color: #b0546a; background: #5c2a36; }
+#saveas p { margin: 10px 0 0; font-size: 12px; }
+#saveas p.warn { color: #f0a0b0; }
+#saveas input.kitname { font-family: ui-monospace, monospace; text-transform: none; }

@@ -38,6 +38,92 @@ window.lxrToast = ({ text }) => {
   clearTimeout(t.timer); t.timer = setTimeout(() => t.classList.remove('show'), 2500);
 };
 
+// Save sheet: pick a loaded bank (rename it in place with ✎), a slot in it and the kit's name.
+const save = { open: false, morphed: false, bank: '', slot: 0, name: '', renaming: false };
+const slotOf = k => parseInt(k.file, 10);
+function bankKitsOf(b) { return state.kits.filter(k => k.bank === b); }
+function firstFreeSlot(b) {
+  const ks = bankKitsOf(b), v = ks.find(k => k.virtual), used = new Set(ks.map(slotOf));
+  if (v) return slotOf(v);
+  for (let i = 0; i < 128; i++) if (!used.has(i)) return i;
+  return 127;
+}
+phx.saveAs = ({ morphed }) => {
+  const k = state.kits[state.kit];
+  if (!k) return;
+  Object.assign(save, { open: true, morphed: !!morphed, bank: k.bank, renaming: false,
+    name: ((morphed ? 'M' : '') + k.name).slice(0, 8) });
+  save.slot = firstFreeSlot(save.bank);
+  drawSave();
+  const d = $('saveas'); if (!d.open) d.showModal();
+  d.querySelector('input.kitname')?.select();
+};
+function drawSave() {
+  const d = $('saveas');
+  if (!save.open) return;
+  // a bank that vanished (not one we're renaming): back to the kit's own bank, at a free slot
+  if (!bankNames().includes(save.bank) && save.bank !== save.pending) {
+    save.bank = state.kits[state.kit]?.bank ?? bankNames()[0]; save.slot = firstFreeSlot(save.bank);
+  }
+  const ks = bankKitsOf(save.pending === save.bank && !bankNames().includes(save.bank) ? save.pendingFrom : save.bank), at = new Map(ks.map(k => [slotOf(k), k]));
+  const target = at.get(save.slot), replacing = target && !target.virtual;
+  const finish = () => { save.open = false; d.close(); };
+  const doSave = () => {
+    const name = save.name.trim();
+    if (!name) return;
+    post({ cmd: 'saveKitTo', bank: save.bank, slot: save.slot, name, morphed: save.morphed });
+    finish();
+  };
+
+  let bankCtl;
+  if (save.renaming) {
+    bankCtl = h('input', { className: 'bankname', value: save.bank, 'aria-label': 'Bank name' });
+    const commit = () => {
+      if (!save.renaming) return;
+      save.renaming = false;
+      const name = bankCtl.value.trim();
+      if (name && name !== save.bank) { post({ cmd: 'renameBank', bank: save.bank, name }); save.pendingFrom = save.bank; save.pending = save.bank = name; }
+      drawSave();
+    };
+    bankCtl.onkeydown = e => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); save.renaming = false; drawSave(); }
+    };
+    bankCtl.onblur = commit;
+  } else {
+    bankCtl = h('select', { 'aria-label': 'Bank', onchange: e => { save.bank = e.target.value; save.slot = firstFreeSlot(save.bank); drawSave(); } },
+      bankNames().map(b => b === save.pendingFrom ? save.pending : b).filter((b, i, a) => a.indexOf(b) === i)
+        .map(b => h('option', { value: b, textContent: b, selected: b === save.bank })));
+  }
+  const slots = h('select', { 'aria-label': 'Slot', onchange: e => { save.slot = +e.target.value; drawSave(); } },
+    Array.from({ length: 128 }, (_, i) => {
+      const k = at.get(i), nn = String(i).padStart(2, '0');
+      return h('option', { value: i, selected: i === save.slot,
+        textContent: !k ? `${nn}  — empty` : k.virtual ? `${nn}  INIT (empty)` : `${nn}  ${k.name}` });
+    }));
+  const name = h('input', { className: 'kitname', value: save.name, maxLength: 8, spellcheck: false, 'aria-label': 'Kit name',
+    oninput: e => { save.name = e.target.value; }, onkeydown: e => { if (e.key === 'Enter') { e.preventDefault(); doSave(); } } });
+
+  d.replaceChildren(
+    h('h2', { textContent: save.morphed ? 'Save morph as kit' : 'Save kit as' }),
+    h('div', { className: 'grid' },
+      h('label', { textContent: 'Bank' }),
+      h('div', { className: 'row' }, bankCtl, save.renaming ? '' : h('button', { textContent: '✎', title: 'Rename this bank (its folder)',
+        onclick: () => { save.renaming = true; drawSave(); const i = d.querySelector('input.bankname'); i?.focus(); i?.select(); } })),
+      h('label', { textContent: 'Slot' }), slots,
+      h('label', { textContent: 'Name' }), name),
+    h('p', { className: replacing ? 'warn' : 'dim', textContent: replacing
+      ? `Replaces ${target.file}. The old file goes to the Trash.`
+      : 'Up to 8 characters; the file is NN- plus its first 5.' }),
+    h('div', { className: 'row end' },
+      h('button', { textContent: 'Other folder…', onclick: () => { post({ cmd: 'saveKitElsewhere', morphed: save.morphed }); finish(); } }),
+      h('span', { className: 'grow' }),
+      h('button', { textContent: 'Cancel', onclick: finish }),
+      h('button', { className: replacing ? 'danger' : 'primary', textContent: replacing ? `Replace ${String(save.slot).padStart(2, '0')} ${target.name}` : 'Save', onclick: doSave })),
+  );
+  d.onclose = () => { save.open = false; };
+}
+
 window.drawPrefs = () => {
   const d = $('prefs');
   if (!d.open && d.childElementCount) return;
@@ -73,8 +159,8 @@ function drawSide() {
   side.replaceChildren(
     section('Kit',
       h('p', { className: 'cur', textContent: k ? `${k.bank} / ${k.name}${k.edited ? ' •' : ''}` : 'No kit' }),
-      h('div', { className: 'btns' }, btn('Save', 'saveKit', '⌘S'), btn('Save as…', 'saveKitAs', '⇧⌘S'),
-        btn('Save morph as kit…', 'saveMorph', 'What you hear: the kit morphed toward the target (⌥⌘S)'), btn('Import kits…', 'importKits', '⇧⌘O')),
+      h('div', { className: 'btns' }, btn('Save', 'saveKit', '⌘S'), btn('Save as…', () => phx.saveAs({ morphed: false }), '⇧⌘S'),
+        btn('Save morph as kit…', () => phx.saveAs({ morphed: true }), 'What you hear: the kit morphed toward the target (⌥⌘S)'), btn('Import kits…', 'importKits', '⇧⌘O')),
       h('h4', { textContent: 'Oscillators' }), waves),
     section('Pattern',
       h('p', { className: 'cur', textContent: `${SLOTS[seq.slot]}: ${patternName(seq.slot)}` }),
@@ -96,7 +182,15 @@ function drawSide() {
 
 // Redraw after the host's state and after sequencer changes (slot names).
 const baseState = window.lxrState;
-window.lxrState = s => { baseState(s); drawSide(); };
+window.lxrState = s => {
+  baseState(s); drawSide();
+  // a rename settles with the host's next state: done if the new name is there, else it failed and we go back
+  if (save.pending && s.kits) {
+    if (!bankNames().includes(save.pending) && save.bank === save.pending) save.bank = save.pendingFrom;
+    save.pending = save.pendingFrom = null;
+  }
+  if (save.open && !save.renaming) drawSave();
+};
 const baseDrawSeq = drawSeq;
 drawSeq = (...a) => { baseDrawSeq(...a); drawSide(); };
 

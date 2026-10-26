@@ -142,8 +142,9 @@ extension App {
     func saveKit() {
         guard !kits.isEmpty else { return }
         let k = kits[kit]
-        if k.dir.path.hasPrefix(Bundle.main.bundlePath) { saveKitAs(morphed: false); return }
+        if k.dir.path.hasPrefix(Bundle.main.bundlePath) { js("phx.saveAs", ["morphed": false]); return }
         if write(LxrFile.kitData(name: k.name, params: k.params), to: k.dir.appendingPathComponent(k.file)) {
+            kits[kit].edited = false
             reveal(folder: k.dir, file: k.file)
             js("lxrToast", ["text": "Saved \(k.bank)/\(k.file)"])
         }
@@ -175,7 +176,41 @@ extension App {
         }
     }
 
-    // morphed: save what you hear (the kit morphed toward the target) as a new kit.
+    // The save sheet (files.js): a loaded bank, a slot in it, a name. A kit it replaces goes to the Trash first.
+    func saveKitTo(_ d: [String: Any]) {
+        let fm = FileManager.default
+        guard !kits.isEmpty, let bank = d["bank"] as? String, let dir = folders.first(where: { $0.lastPathComponent == bank }) else { return }
+        let slot = (d["slot"] as? NSNumber)?.intValue ?? -1
+        let name = (d["name"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+        guard (0..<bankSlots).contains(slot), !name.isEmpty else { return }
+        let params = (d["morphed"] as? Bool ?? false) ? heardParams() : kits[kit].params
+        let file = LxrFile.fileName(slot, name, "SND")
+        let prefix = String(format: "%02d-", slot)
+        let old = ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? []).filter { $0.hasPrefix(prefix) && $0.uppercased().hasSuffix(".SND") }
+        for o in old { try? fm.trashItem(at: dir.appendingPathComponent(o), resultingItemURL: nil) }
+        guard write(LxrFile.kitData(name: name, params: params), to: dir.appendingPathComponent(file)) else { return }
+        reveal(folder: dir, file: file)
+        js("lxrToast", ["text": "Saved \(bank)/\(file)" + (old.isEmpty ? "" : " (replaced \(old.joined(separator: ", ")), now in the Trash)")])
+    }
+
+    func renameBank(_ d: [String: Any]) {
+        let fm = FileManager.default
+        guard let bank = d["bank"] as? String, let dir = folders.first(where: { $0.lastPathComponent == bank }) else { return }
+        let name = (d["name"] as? String ?? "").trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "/", with: "-")
+        guard !name.isEmpty, name != bank, !name.hasPrefix(".") else { sendState(); return }
+        let dest = dir.deletingLastPathComponent().appendingPathComponent(name)
+        if fm.fileExists(atPath: dest.path) { alert("Can't rename \(bank)", "\(dest.path) already exists."); sendState(); return }
+        do { try fm.moveItem(at: dir, to: dest) } catch { alert("Can't rename \(bank)", error.localizedDescription); sendState(); return }
+        if let i = folders.firstIndex(of: dir) { folders[i] = dest }
+        let ud = UserDefaults.standard
+        if dir.path == (ud.string(forKey: "factoryBank") ?? userRoot.appendingPathComponent("Banks/Erica-factory").path) { ud.set(dest.path, forKey: "factoryBank") }
+        let cur = kits.isEmpty ? nil : (kits[kit].dir.path == dir.path ? dest.path : kits[kit].dir.path, kits[kit].file)
+        reloadBanks(moved: (dir, dest))
+        select(cur.flatMap { c in kits.firstIndex { $0.dir.path == c.0 && $0.file == c.1 } } ?? kit)
+        js("lxrToast", ["text": "Renamed \(bank) → \(name)"])
+    }
+
+    // "Other folder…" in the save sheet: a plain save panel. morphed: save what you hear (the kit morphed toward the target).
     func saveKitAs(morphed: Bool) {
         guard !kits.isEmpty else { return }
         let k = kits[kit]
