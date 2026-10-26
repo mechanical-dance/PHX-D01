@@ -583,7 +583,10 @@ extension App {
     func loadProject(_ picked: URL) {
         let fm = FileManager.default
         var dir = picked
-        if App.isCard(picked), !fm.fileExists(atPath: picked.deletingLastPathComponent().appendingPathComponent("phx.json").path) {
+        // the card folder inside one of our projects: open that project
+        if App.isCard(picked), fm.fileExists(atPath: picked.deletingLastPathComponent().appendingPathComponent("phx.json").path) {
+            dir = picked.deletingLastPathComponent()
+        } else if App.isCard(picked), !fm.fileExists(atPath: picked.deletingLastPathComponent().appendingPathComponent("phx.json").path) {
             let nfo = (try? Data(contentsOf: picked.appendingPathComponent("PRJ.NFO"))).map { String(decoding: $0.prefix(8), as: UTF8.self).trimmingCharacters(in: .whitespaces.union(.controlCharacters)) }
             var name = (nfo?.isEmpty == false ? nfo! : picked.lastPathComponent), n = 2
             while fm.fileExists(atPath: projectsRoot.appendingPathComponent(name).path) { name = "\(nfo ?? picked.lastPathComponent) \(n)"; n += 1 }
